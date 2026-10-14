@@ -32,7 +32,10 @@ Goal for the next session: **stage 4 (notes via Claude + Markdown)**, then stage
   commits or pull requests. The history was rewritten once to remove them; do not add them back.
 - One stage at a time: short plan per file first → code → `mvn package` with tests → acceptance
   check in the running app → commit → `git push`.
-- GPU (CUDA) must keep working, with automatic CPU fallback.
+- GPU (CUDA) must keep working.
+- **Everything on the GPU, no CPU processing** (user request, 2026-10-14). This overrides the spec's
+  "automatic fallback to CPU" (sections 3 and 5.3). Ask the user how a PC without CUDA should behave
+  (clear error vs. fallback) before changing the fallback code. See the CPU list in section 6.
 - The user wants the result to feel like **one recording**: record → stop → AI extracts the key
   information → Notion. Separate audio/video tracks are an internal detail.
 - Screen recording is required: important information is often shown on slides (often in English).
@@ -115,6 +118,14 @@ Plan to propose to the user:
   Also decide on the known gap below.
 
 ## 6. Known gaps and risks
+- Work still done on the CPU, to move to the GPU (see section 2):
+  - Silero VAD: `whisper-vad-speech-segments` runs without `-ug` (`WhisperCppTranscriber.detectSpeech`);
+  - Whisper CPU fallback: `whisper.device: auto` + `cpu-model` (small) in `WhisperCppTranscriber.startServer`;
+  - YOLO CPU backend: `visiontrack.model.backends: [CUDA, CPU]`;
+  - screen encoding with `libopenh264` (`ScreenCapture`) and `Ffmpeg.concat` — candidate: `h264_nvenc`
+    (present in the bundled ffmpeg); AAC encoding in `Ffmpeg.mux`;
+  - slide thumbnails and comparison in Java (`SlideChangeDetector`, `SlideExtractor`), video decoding in
+    `VideoReader` (candidate: CUDA hardware decoding).
 - YOLO (`OnnxYoloDetector` bean) stays loaded on the GPU while Whisper runs; the spec says not both.
   Fine on 12 GB; on a weak GPU Whisper falls back to the CPU. Consider lazy loading / unloading YOLO.
 - Track offsets come from process start times; the screen starts ~1 s later than the mic
