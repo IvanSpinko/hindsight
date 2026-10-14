@@ -45,7 +45,7 @@ public class MeetingRecorder {
 
     public record StartRequest(String title, Integer monitor, String microphone) {}
 
-    static final String SCREEN = "screen";
+    public static final String SCREEN = "screen";
     static final String MIC = "mic";
     static final String RECORDING_FILE = "recording.mp4";
 

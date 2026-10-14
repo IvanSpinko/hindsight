@@ -6,7 +6,6 @@ import org.example.visiontrack.meeting.Meeting;
 import org.example.visiontrack.meeting.MeetingJobService;
 import org.example.visiontrack.meeting.MeetingRecorder;
 import org.example.visiontrack.meeting.MeetingStore;
-import org.example.visiontrack.meeting.SlideExtractor;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
@@ -84,7 +83,7 @@ public class MeetingController {
         return store.find(id).map(m -> ResponseEntity.ok(response(m))).orElse(ResponseEntity.notFound().build());
     }
 
-    /** Runs the processing (slides, ...) again, e.g. after it failed or with new settings. */
+    /** Runs the processing (speech, notes) again, e.g. after it failed or with new settings. */
     @PostMapping("/{id}/process")
     public ResponseEntity<MeetingResponse> process(@PathVariable("id") String id) {
         Meeting meeting = store.find(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found"));
@@ -95,17 +94,14 @@ public class MeetingController {
         return ResponseEntity.accepted().body(response(store.find(id).orElseThrow()));
     }
 
-    @GetMapping("/{id}/slides")
-    public List<SlideExtractor.Slide> slides(@PathVariable("id") String id) throws IOException {
-        if (store.folder(id).isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found");
-        return jobs.slides(id);
-    }
-
-    @GetMapping("/{id}/slides/{file:slide-\\d+\\.png}")
-    public ResponseEntity<Resource> slideImage(@PathVariable("id") String id, @PathVariable("file") String file) {
-        Path image = store.folder(id).map(f -> f.resolve("slides").resolve(file)).filter(Files::isRegularFile)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Slide not found"));
-        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(new FileSystemResource(image));
+    /** The screen recording with sound, for people to watch (the browser plays it; seeking uses range requests). */
+    @GetMapping("/{id}/recording")
+    public ResponseEntity<Resource> recording(@PathVariable("id") String id) {
+        Meeting meeting = store.find(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found"));
+        Meeting.Track screen = meeting.tracks().stream().filter(t -> t.kind().equals(MeetingRecorder.SCREEN)).findFirst().orElse(null);
+        Path video = screen == null ? null : store.folder(id).map(f -> f.resolve(screen.file())).filter(Files::isRegularFile).orElse(null);
+        if (video == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Recording not found");
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType("video/mp4")).body(new FileSystemResource(video));
     }
 
     /** The readable transcript (Markdown, shown as plain text in the browser). */
@@ -113,6 +109,15 @@ public class MeetingController {
     public ResponseEntity<Resource> transcript(@PathVariable("id") String id) {
         Path file = store.folder(id).map(f -> f.resolve("transcript.md")).filter(Files::isRegularFile)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transcript not found"));
+        return ResponseEntity.ok().contentType(new MediaType("text", "plain", StandardCharsets.UTF_8))
+                .body(new FileSystemResource(file));
+    }
+
+    /** The notes written by the local model (Markdown, shown as plain text in the browser). */
+    @GetMapping("/{id}/notes")
+    public ResponseEntity<Resource> notes(@PathVariable("id") String id) {
+        Path file = store.folder(id).map(f -> f.resolve("notes.md")).filter(Files::isRegularFile)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notes not found"));
         return ResponseEntity.ok().contentType(new MediaType("text", "plain", StandardCharsets.UTF_8))
                 .body(new FileSystemResource(file));
     }

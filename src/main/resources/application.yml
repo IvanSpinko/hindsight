@@ -55,19 +55,25 @@ visiontrack:
   meetings:
     # One folder per meeting: <date>_<time>_<title> with video/, audio/ and meeting.json
     directory: ${user.home}/Documents/VisionTrack/Meetings
-    # Screen frames per second (slides change rarely; keeps the meeting itself smooth)
+    # Screen frames per second: the screen is kept for people to rewatch, it is not analysed
     screen-fps: 1
     # Recording is written in parts of this length, so a crash loses at most the unfinished part
     segment-seconds: 300
     max-recording-minutes: 360
-    # Slides: the screen must stay still this long (animations and transitions are skipped)...
-    slide-stable-seconds: 2
-    # ...and this share of it must differ from the previous slide (ignores cursors, clocks, small popups)
-    slide-min-changed-share: 0.03
-    # Speech recognition (whisper.cpp on CUDA, see packaging/get-whisper.ps1). Each piece of speech gets its
+    # Speech recognition (whisper.cpp on CUDA, see packaging/get-models.ps1). Each piece of speech gets its
     # own language, limited to these; the first one is the fallback.
     whisper:
       directory: tools/whisper
       model: models/whisper/ggml-large-v3-turbo-q8_0.bin
       vad-model: models/whisper/ggml-silero-v5.1.2.bin
       languages: [ru, en]
+    # Notes written from the transcript by a local model (llama.cpp on CUDA, see packaging/get-models.ps1).
+    # Without the model this step is skipped and only the transcript is saved.
+    notes:
+      directory: tools/llama
+      model: models/llm/gemma-4-12b-it-qat-q4_0.gguf
+      # Longer meetings are summarised in parts of this length, then merged
+      chunk-minutes: 10
+      # Context window of the model (prompt + answer) and the longest answer, in tokens
+      context-tokens: 16384
+      max-tokens: 4096

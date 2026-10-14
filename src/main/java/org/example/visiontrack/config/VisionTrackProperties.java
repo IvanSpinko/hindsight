@@ -58,8 +58,7 @@ public record VisionTrackProperties(
     /**
      * Meeting recording. {@code ffmpegDir} overrides the ffmpeg bundled with JavaCV (a folder with
      * ffmpeg.exe and ffprobe.exe); {@code maxRecordingMinutes} also stops captures orphaned by a crash.
-     * A slide is kept once the screen stays still for {@code slideStableSeconds} and at least
-     * {@code slideMinChangedShare} of it differs from the previous slide.
+     * The screen is recorded for people to watch later; only the speech is analysed.
      */
     public record Meetings(
             @NotNull Path directory,
@@ -67,9 +66,22 @@ public record VisionTrackProperties(
             @Min(10) int segmentSeconds,
             @Min(1) int maxRecordingMinutes,
             Path ffmpegDir,
-            @DecimalMin("0.5") double slideStableSeconds,
-            @DecimalMin("0.001") @DecimalMax("1.0") double slideMinChangedShare,
-            @Valid @NotNull Whisper whisper
+            @Valid @NotNull Whisper whisper,
+            @Valid @NotNull Notes notes
+    ) {}
+
+    /**
+     * Meeting notes written by a local model with llama.cpp on CUDA: {@code directory} holds llama-server.exe and
+     * its DLLs, {@code model} is a GGUF file. Meetings longer than {@code chunkMinutes} are summarised in parts of
+     * that length first, then merged. {@code contextTokens} is the model's context window (prompt and answer),
+     * {@code maxTokens} the longest answer.
+     */
+    public record Notes(
+            @NotNull Path directory,
+            @NotNull Path model,
+            @Min(1) int chunkMinutes,
+            @Min(2048) int contextTokens,
+            @Min(256) int maxTokens
     ) {}
 
     /**

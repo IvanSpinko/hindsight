@@ -116,9 +116,6 @@
   .badge.ready { background: #dcfce7; color: #166534; }
   @media (prefers-color-scheme: dark) { .badge.ready { background: #14321f; color: #86efac; } }
   .meeting .progress { margin: 8px 0 2px; max-width: 360px; }
-  .slides { display: flex; gap: 8px; overflow-x: auto; padding: 8px 0 4px; }
-  .slides a { flex: none; text-decoration: none; color: var(--muted); font-size: 12px; text-align: center; }
-  .slides img { display: block; width: 160px; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--border); border-radius: 6px; background: #000; }
   @media (max-width: 520px) { .form { grid-template-columns: 1fr; gap: 4px; } }
 </style>
 </head>
@@ -784,7 +781,6 @@
   const $ = id => document.getElementById(id);
   const CONSENT_KEY = 'visiontrack.recordingConsent';
   let loaded = false, recording = null, timer = null, poll = null;
-  const slideCache = new Map();   // meeting id -> slides, fetched once the meeting is ready
 
   document.addEventListener('modechange', e => { if (e.detail === 'meetings' && !loaded) { loaded = true; init(); } });
   $('m-refresh').addEventListener('click', () => loadDevices(true));
@@ -890,12 +886,6 @@
     }
     const active = items.find(i => i.meeting.status === 'RECORDING');
     if (active && !recording) showRecording(active.meeting);
-    for (const { meeting } of items) {
-      if (meeting.status === 'READY' && meeting.slideCount > 0 && !slideCache.has(meeting.id)) {
-        slideCache.set(meeting.id, await api(`/api/meetings/${meeting.id}/slides`).catch(() => []));
-      }
-      if (meeting.status !== 'READY') slideCache.delete(meeting.id);
-    }
     $('m-empty').hidden = items.length > 0;
     $('m-list').replaceChildren(...items.map(renderMeeting));
     // Keep refreshing while something is being processed
@@ -924,34 +914,31 @@
     }
     if (meeting.status === 'READY') {
       const t = meeting.transcription;
-      const summary = [meeting.slideCount === 1 ? '1 slide' : `${meeting.slideCount} slides`];
+      const summary = [];
       if (t) summary.push(`speech: ${t.languages.length ? t.languages.join(', ').toUpperCase() : 'none'} · ${t.model} on ${t.backend}`);
+      const n = meeting.notes;
+      if (n) summary.push(`notes: ${n.decisions} decisions, ${n.actionItems} action items · ${n.model}`);
       const info = el('div', 'row');
       info.append(el('span', 'path', summary.join(' · ')));
+      if (n) {
+        const link = el('a', 'link', 'Notes');
+        link.href = `/api/meetings/${meeting.id}/notes`;
+        link.target = '_blank';
+        info.append(link);
+      }
       if (t && t.segments > 0) {
         const link = el('a', 'link', 'Transcript');
         link.href = `/api/meetings/${meeting.id}/transcript`;
         link.target = '_blank';
         info.append(link);
       }
-      div.append(info);
-      const slides = slideCache.get(meeting.id) || [];
-      if (slides.length) {
-        const strip = el('div', 'slides');
-        for (const slide of slides) {
-          const url = `/api/meetings/${meeting.id}/${slide.file}`;
-          const link = el('a', '');
-          link.href = url;
-          link.target = '_blank';
-          const img = document.createElement('img');
-          img.src = url;
-          img.loading = 'lazy';
-          img.alt = `Slide ${slide.number}`;
-          link.append(img, el('span', '', slide.time));
-          strip.append(link);
-        }
-        div.append(strip);
+      if (meeting.tracks.some(track => track.kind === 'screen')) {
+        const link = el('a', 'link', 'Recording');
+        link.href = `/api/meetings/${meeting.id}/recording`;
+        link.target = '_blank';
+        info.append(link);
       }
+      div.append(info);
     }
     if (folder) {
       const open = el('button', 'link', 'Open folder');

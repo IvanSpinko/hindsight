@@ -50,12 +50,18 @@ final class TranscriptWriter {
         boolean showLanguage = result.languages().size() > 1;
         for (List<TranscriptSegment> paragraph : paragraphs(result.segments())) {
             TranscriptSegment first = paragraph.getFirst();
-            md.append("\n**[").append(SlideExtractor.clock(first.start())).append("] ").append(speaker(first.source()));
+            md.append("\n**[").append(clock(first.start())).append("] ").append(speaker(first.source()));
             if (showLanguage) md.append(" (").append(first.language().toUpperCase(Locale.ROOT)).append(')');
             md.append(":** ");
             md.append(String.join(" ", paragraph.stream().map(TranscriptSegment::text).toList())).append('\n');
         }
         return md.toString();
+    }
+
+    /** Seconds on the meeting timeline as {@code HH:MM:SS}. */
+    static String clock(double seconds) {
+        long s = (long) seconds;
+        return "%02d:%02d:%02d".formatted(s / 3600, s / 60 % 60, s % 60);
     }
 
     static String speaker(String source) {

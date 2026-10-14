@@ -37,6 +37,6 @@ class GpuRequiredTest {
 
         ObjectDetectorProvider provider = new ObjectDetectorProvider(properties);
 
-        assertThatThrownBy(provider::get).hasMessageContaining("Model file not found");
+        assertThatThrownBy(provider::check).hasMessageContaining("Model file not found");
     }
 }

@@ -55,6 +55,7 @@ settings.json
 *.env
 *.key
 
-# Whisper (whisper.cpp binaries and models, fetched by packaging/get-whisper.ps1)
+# Whisper and the notes model (llama.cpp, whisper.cpp binaries and models, fetched by packaging/get-models.ps1)
 tools/
 models/whisper/
+models/llm/

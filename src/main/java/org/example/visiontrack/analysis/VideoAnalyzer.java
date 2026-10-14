@@ -39,11 +39,14 @@ public class VideoAnalyzer {
 
     /** Fails fast with the reason when object detection is unavailable (e.g. no NVIDIA GPU). */
     public void checkAvailable() {
-        detectors.get();
+        detectors.check();
     }
 
     public AnalysisResult analyze(Path video, ProgressListener progress) {
-        OnnxYoloDetector detector = detectors.get();
+        return detectors.use(detector -> analyze(detector, video, progress));
+    }
+
+    private AnalysisResult analyze(OnnxYoloDetector detector, Path video, ProgressListener progress) {
         long started = System.nanoTime();
         long sampleIntervalMicros = settings.sampleFps() > 0 ? Math.round(1_000_000 / settings.sampleFps()) : 0;
         ObjectTracker tracker = new ObjectTracker(settings.trackIouThreshold(),

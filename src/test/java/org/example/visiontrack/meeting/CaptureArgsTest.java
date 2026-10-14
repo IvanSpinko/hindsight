@@ -17,7 +17,7 @@ class CaptureArgsTest {
 
         String filter = args.get(args.indexOf("-filter_complex") + 1);
         // Frames go from the Desktop Duplication API straight to NVENC, without a copy through system memory
-        assertThat(filter).isEqualTo("ddagrab=output_idx=1:framerate=1.000:draw_mouse=0");
+        assertThat(filter).isEqualTo("ddagrab=output_idx=1:framerate=1.000:draw_mouse=1");
         assertThat(args).containsSubsequence("-t", "3600")
                 .containsSubsequence("-f", "segment", "-segment_time", "300", "-segment_format", "matroska")
                 .containsSubsequence("-c:v", "h264_nvenc", "-bf", "0", "-forced-idr", "1")
@@ -29,7 +29,7 @@ class CaptureArgsTest {
     void gdigrabFallbackGrabsTheDesktop() {
         List<String> args = ScreenCapture.args(ScreenCapture.Method.GDIGRAB, 0, 0.5, DIR, 300, 3600);
 
-        assertThat(args).containsSubsequence("-f", "gdigrab", "-framerate", "0.500", "-draw_mouse", "0")
+        assertThat(args).containsSubsequence("-f", "gdigrab", "-framerate", "0.500", "-draw_mouse", "1")
                 .containsSubsequence("-i", "desktop")
                 .contains("h264_nvenc")
                 .doesNotContain("-filter_complex");

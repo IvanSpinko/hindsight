@@ -6,41 +6,81 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.function.Function;
+
 /**
- * Loads the detector once at startup. When it cannot be loaded (no NVIDIA GPU, missing model) the app still
- * starts, so meetings can be recorded; video analysis and the live camera then report the reason instead.
+ * Loads the detector on first use and can unload it again, so its VRAM is free while a meeting is processed by
+ * the speech and notes models. When it cannot be loaded (no NVIDIA GPU, missing model) the app still runs; video
+ * analysis and the live camera report the reason instead.
  */
 @Component
 public class ObjectDetectorProvider implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(ObjectDetectorProvider.class);
 
-    private final OnnxYoloDetector detector;
-    private final RuntimeException failure;
+    private final VisionTrackProperties.Model config;
+    private OnnxYoloDetector detector;
+    private int users;
 
     public ObjectDetectorProvider(VisionTrackProperties properties) {
-        OnnxYoloDetector loaded = null;
-        RuntimeException error = null;
-        try {
-            loaded = OnnxYoloDetector.load(properties.model());
-        } catch (OrtException e) {
-            error = new IllegalStateException("Cannot load the object detection model: " + e.getMessage(), e);
-        } catch (RuntimeException e) {
-            error = e;
-        }
-        if (error != null) log.error("Object detection is unavailable: {}", error.getMessage(), error.getCause());
-        this.detector = loaded;
-        this.failure = error;
+        this.config = properties.model();
     }
 
-    /** The detector, or the reason it could not be loaded (a {@link org.example.visiontrack.GpuRequiredException} without CUDA). */
-    public OnnxYoloDetector get() {
-        if (detector == null) throw failure;
-        return detector;
+    /**
+     * Runs {@code work} with the detector, loading it if needed; it is not unloaded while in use. Throws the reason
+     * it cannot be loaded, a {@link org.example.visiontrack.GpuRequiredException} without CUDA.
+     */
+    public <T> T use(Function<OnnxYoloDetector, T> work) {
+        OnnxYoloDetector current;
+        synchronized (this) {
+            if (detector == null) detector = load();
+            current = detector;
+            users++;
+        }
+        try {
+            return work.apply(current);
+        } finally {
+            synchronized (this) {
+                users--;
+            }
+        }
+    }
+
+    /** Fails fast with the reason when the detector cannot be loaded. */
+    public void check() {
+        use(d -> null);
+    }
+
+    /** Frees the detector's VRAM unless a video analysis or the live camera is using it right now. */
+    public synchronized void unloadIfUnused() {
+        if (detector == null || users > 0) return;
+        try {
+            detector.close();
+            log.info("Object detection unloaded to free the GPU");
+        } catch (OrtException e) {
+            log.warn("Cannot unload object detection: {}", e.getMessage());
+        }
+        detector = null;
+    }
+
+    private OnnxYoloDetector load() {
+        try {
+            return OnnxYoloDetector.load(config);
+        } catch (OrtException e) {
+            throw logged(new IllegalStateException("Cannot load the object detection model: " + e.getMessage(), e));
+        } catch (RuntimeException e) {
+            throw logged(e);
+        }
+    }
+
+    private static RuntimeException logged(RuntimeException e) {
+        log.error("Object detection is unavailable: {}", e.getMessage(), e.getCause());
+        return e;
     }
 
     @Override
-    public void close() throws OrtException {
+    public synchronized void close() throws OrtException {
         if (detector != null) detector.close();
+        detector = null;
     }
 }

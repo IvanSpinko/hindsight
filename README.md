@@ -32,20 +32,22 @@ Open http://localhost:8080, drop in a video and wait for the results. Settings l
 | POST   | `/api/meetings/{id}/stop`         | stops, builds `recording.mp4` (screen + sound) and starts processing |
 | GET    | `/api/meetings`, `/api/meetings/{id}` | recorded meetings (read from their folders)           |
 | POST   | `/api/meetings/{id}/process`      | runs the processing again                                 |
-| GET    | `/api/meetings/{id}/slides`       | slides with times; images at `/api/meetings/{id}/slides/slide-NN.png` |
+| GET    | `/api/meetings/{id}/notes`        | the notes (`notes.md`)                                    |
+| GET    | `/api/meetings/{id}/transcript`   | the transcript (`transcript.md`)                          |
+| GET    | `/api/meetings/{id}/recording`    | the screen recording with sound, playable in the browser  |
 | POST   | `/api/meetings/{id}/open-folder`  | opens the meeting folder in Explorer                      |
 
 Recordings go to `Documents\VisionTrack\Meetings\<date>_<time>_<title>\`. The screen (ffmpeg `ddagrab`,
-falling back to `gdigrab`, 1 fps) and the microphone (`dshow`, 16 kHz mono) are captured by the ffmpeg
-bundled with JavaCV in separate processes, written in 5-minute parts, so a crash keeps what was recorded;
-unfinished meetings are joined on the next start. After "Stop" the meeting is processed in the background
-(`RECORDED → PROCESSING → READY`): `SlideChangeDetector` keeps every slide that stays on screen for 2 s,
-ignoring participant webcams, transitions and bullet-by-bullet builds, and saves `slides/slide-NN.png`.
-Then the microphone track is transcribed with whisper.cpp (`transcript.md`, `transcript.json`): Silero VAD
-finds the speech, each piece of up to 30 s gets its own language (Russian or English), large-v3-turbo runs
-on CUDA. Install it once with
-`powershell -ExecutionPolicy Bypass -File packaging\get-whisper.ps1` (downloads ~2 GB into `tools\whisper`
-and `models\whisper`); without it meetings are still recorded and get slides, only the transcript is skipped.
+falling back to `gdigrab`, 1 fps, encoded by NVENC) and the microphone (`dshow`, 16 kHz mono) are captured by
+the ffmpeg bundled with JavaCV in separate processes, written in 5-minute parts, so a crash keeps what was
+recorded; unfinished meetings are joined on the next start. The screen is only for people to rewatch: the notes
+come from what was said. After "Stop" the meeting is processed in the background (`RECORDED → PROCESSING → READY`):
+whisper.cpp transcribes the speech (`transcript.md`, `transcript.json`; Silero VAD finds the speech, each piece of
+up to 30 s gets its own language, Russian or English, large-v3-turbo on CUDA), then a local model, Gemma 4 12B on
+llama.cpp, writes the notes (`notes.md`, `notes.json`: summary, decisions, action items with owners and due dates,
+timeline, open questions). Everything runs offline on the GPU. Install the programs and models once with
+`powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1` (downloads ~10 GB into `tools\` and
+`models\`); without them meetings are still recorded, only the transcript or the notes are skipped.
 
 ```bash
 curl -F "file=@street.mp4" http://localhost:8080/api/analyses
