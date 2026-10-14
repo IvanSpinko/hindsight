@@ -26,7 +26,7 @@ Goal for the next session: **stage 4 (notes via Claude + Markdown)**, then stage
 
 - The user writes in Russian; answer in Russian.
 - **Every file in the repo is English-only**: code, comments, UI, config, tests, docs. No Cyrillic at all.
-  Before each commit: `git diff --cached --name-only --diff-filter=d` and grep for `[Ѐ-ӿ]`.
+  Before each commit: `git diff --cached --name-only --diff-filter=d` and check for characters in the Cyrillic range U+0400 to U+04FF.
   Test data uses English text even where the feature is about Russian speech.
 - **Single author on GitHub**: no `Co-Authored-By` trailer and no "Generated with Claude Code" line in
   commits or pull requests. The history was rewritten once to remove them; do not add them back.
