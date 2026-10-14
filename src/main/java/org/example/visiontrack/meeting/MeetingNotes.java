@@ -33,7 +33,10 @@ public record MeetingNotes(
 
     public static final List<String> TYPES = List.of("call", "lecture", "interview", "other");
 
-    private static final Pattern TIME = Pattern.compile("\\d{2}:[0-5]\\d:[0-5]\\d");
+    /** The transcript's speaker labels (lower case); they are not people. */
+    private static final Set<String> SPEAKER_LABELS = Set.of("me", "other participants", "participants");
+
+    private static final Pattern TIME =Pattern.compile("\\d{2}:[0-5]\\d:[0-5]\\d");
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record ActionItem(String task, String owner, String due, String sourceTime) {}
@@ -69,7 +72,7 @@ public record MeetingNotes(
         }
         // The speaker labels of the transcript are not people
         List<String> people = texts(participants).stream()
-                .filter(p -> !p.equalsIgnoreCase("Me") && !p.equalsIgnoreCase("Other participants")).toList();
+                .filter(p -> !SPEAKER_LABELS.contains(p.toLowerCase(Locale.ROOT))).toList();
         return new MeetingNotes(text(title), cleanType != null && TYPES.contains(cleanType) ? cleanType : null, text(project),
                 texts(tags), people, text(summary), texts(decisions), items, entries, texts(openQuestions));
     }

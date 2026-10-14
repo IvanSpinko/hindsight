@@ -60,11 +60,25 @@ final class LocalNotesGenerator implements NotesGenerator {
             }
             MeetingNotes notes = parts.size() == 1 ? partial.getFirst() : merge(input, partial);
             progress.onProgress(1.0);
-            return new Result(notes, modelName);
+            return new Result(withoutUnknownMe(notes, input), modelName);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Writing notes was interrupted", e);
         }
+    }
+
+    /**
+     * "Me" is the person who recorded, heard on the microphone track. An uploaded recording has no such track, so a
+     * speaker saying "I will do it" is unknown: the model's "Me" owner is removed rather than kept as a guess.
+     */
+    static MeetingNotes withoutUnknownMe(MeetingNotes notes, Input input) {
+        boolean recorderSpoke = input.segments().stream().anyMatch(s -> MeetingRecorder.MIC.equals(s.source()));
+        if (recorderSpoke) return notes;
+        List<MeetingNotes.ActionItem> items = notes.actionItems().stream()
+                .map(i -> "Me".equalsIgnoreCase(i.owner()) ? new MeetingNotes.ActionItem(i.task(), null, i.due(), i.sourceTime()) : i)
+                .toList();
+        return new MeetingNotes(notes.title(), notes.type(), notes.project(), notes.tags(), notes.participants(),
+                notes.summary(), notes.decisions(), items, notes.timeline(), notes.openQuestions());
     }
 
     /** One set of notes from partial ones; when they do not fit the context together, each half is merged first. */

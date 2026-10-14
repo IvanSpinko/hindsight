@@ -65,7 +65,10 @@ final class TranscriptWriter {
     }
 
     static String speaker(String source) {
-        return MeetingRecorder.MIC.equals(source) ? "Me" : "Other participants";
+        if (MeetingRecorder.MIC.equals(source)) return "Me";
+        // An uploaded recording has everyone on one track
+        if (RecordingImport.MIXED.equals(source)) return "Participants";
+        return "Other participants";
     }
 
     /** Consecutive segments of the same speaker and language, split at longer pauses. */

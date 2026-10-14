@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class MeetingJobService {
 
     static final String STEP_WAITING = "Waiting";
+    static final String STEP_PREPARING = "Preparing the recording";
     static final String STEP_SPEECH = "Recognising speech";
     static final String STEP_NOTES = "Writing notes";
     /** Warnings of the notes step start with this, so processing again replaces them. */
@@ -46,6 +47,8 @@ public class MeetingJobService {
 
     private final MeetingStore store;
     private final VisionTrackProperties.Whisper whisper;
+    private final Path ffmpegDir;
+    private volatile Ffmpeg ffmpeg;
     private final ObjectMapper json;
     private final TranscriptWriter transcripts;
     private final VisionTrackProperties.Notes notesSettings;
@@ -65,6 +68,7 @@ public class MeetingJobService {
         this.detectors = detectors;
         VisionTrackProperties.Meetings settings = properties.meetings();
         this.whisper = settings.whisper();
+        this.ffmpegDir = settings.ffmpegDir();
         this.json = objectMapper;
         this.transcripts = new TranscriptWriter(objectMapper);
         this.notesSettings = settings.notes();
@@ -92,6 +96,7 @@ public class MeetingJobService {
         Path folder = store.folder(id).orElse(null);
         if (meeting == null || folder == null) return;
         try {
+            meeting = prepareUpload(meeting, folder);
             detectors.unloadIfUnused();
             Meeting.Transcription transcription = transcribe(meeting, folder);
             Meeting.NotesInfo notes = writeNotes(meeting, folder);
@@ -114,7 +119,7 @@ public class MeetingJobService {
      */
     private Meeting.Transcription transcribe(Meeting meeting, Path folder) throws IOException {
         List<Transcriber.Track> tracks = meeting.tracks().stream()
-                .filter(t -> t.kind().equals(MeetingRecorder.MIC) || t.kind().equals(MeetingRecorder.SYSTEM))
+                .filter(t -> SPEECH_TRACKS.contains(t.kind()))
                 .filter(t -> Files.isRegularFile(folder.resolve(t.file())))
                 .map(t -> new Transcriber.Track(folder.resolve(t.file()), t.startOffsetMillis() / 1000.0, t.kind()))
                 .toList();
@@ -211,6 +216,27 @@ public class MeetingJobService {
     private void warn(String id, String warning) {
         log.warn("Meeting {}: {}", id, warning);
         store.find(id).ifPresent(m -> store.save(m.withWarning(warning)));
+    }
+
+    /** Tracks that hold speech: the microphone, the system sound, or an uploaded recording with everyone on it. */
+    private static final Set<String> SPEECH_TRACKS = Set.of(MeetingRecorder.MIC, MeetingRecorder.SYSTEM, RecordingImport.MIXED);
+
+    /** An uploaded file becomes a playable copy and a speech track before anything else (once; kept on restart). */
+    private Meeting prepareUpload(Meeting meeting, Path folder) throws IOException {
+        Meeting.Track upload = meeting.track(RecordingImport.UPLOAD);
+        if (upload == null) return meeting;
+        store.save(meeting.processing(STEP_PREPARING, 0));
+        List<Meeting.Track> tracks = RecordingImport.prepare(ffmpeg(), folder, upload);
+        Meeting prepared = store.find(meeting.id()).orElse(meeting).withTracks(tracks);
+        store.save(prepared);
+        log.info("Meeting {}: uploaded recording prepared, {} s", meeting.id(),
+                Math.round(tracks.stream().mapToDouble(Meeting.Track::durationSeconds).max().orElse(0)));
+        return prepared;
+    }
+
+    private Ffmpeg ffmpeg() {
+        if (ffmpeg == null) ffmpeg = Ffmpeg.locate(ffmpegDir);
+        return ffmpeg;
     }
 
     /** Saves progress to meeting.json in 5% steps, so the UI can show it without rewriting the file every frame. */

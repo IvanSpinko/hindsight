@@ -102,6 +102,16 @@ class LocalNotesGeneratorTest {
     }
 
     @Test
+    void meIsNoOwnerWhenTheRecorderWasNotOnTheRecording() throws IOException {
+        model.answer = NOTES.replace("\"owner\": \"Anna\"", "\"owner\": \"Me\"");
+        NotesGenerator.Input uploaded = new NotesGenerator.Input("Upload", ZonedDateTime.of(2026, 10, 14, 10, 0, 0, 0, ZoneOffset.UTC), 60,
+                List.of(new TranscriptSegment(0, 5, RecordingImport.MIXED, "en", "I will prepare the budget")));
+
+        assertThat(generator(1_000_000).generate(uploaded, p -> {}).notes().actionItems().getFirst().owner()).isNull();
+        assertThat(generator(1_000_000).generate(input(60), p -> {}).notes().actionItems().getFirst().owner()).isEqualTo("Me");
+    }
+
+    @Test
     void truncatedOrBrokenAnswersAreClearErrors() {
         model.truncated = true;
         assertThatThrownBy(() -> generator(1_000_000).generate(input(60), p -> {}))

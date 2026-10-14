@@ -3,6 +3,7 @@ package org.example.visiontrack.web;
 import jakarta.servlet.http.HttpServletRequest;
 import org.example.visiontrack.meeting.CaptureDevices;
 import org.example.visiontrack.meeting.Meeting;
+import org.example.visiontrack.meeting.MeetingImporter;
 import org.example.visiontrack.meeting.MeetingJobService;
 import org.example.visiontrack.meeting.MeetingRecorder;
 import org.example.visiontrack.meeting.MeetingStore;
@@ -10,6 +11,7 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -19,9 +21,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
@@ -38,11 +42,13 @@ public class MeetingController {
     private final MeetingRecorder recorder;
     private final MeetingStore store;
     private final MeetingJobService jobs;
+    private final MeetingImporter importer;
 
-    public MeetingController(MeetingRecorder recorder, MeetingStore store, MeetingJobService jobs) {
+    public MeetingController(MeetingRecorder recorder, MeetingStore store, MeetingJobService jobs, MeetingImporter importer) {
         this.recorder = recorder;
         this.store = store;
         this.jobs = jobs;
+        this.importer = importer;
     }
 
     /** Screen and microphone recording is only ever controlled from this computer. */
@@ -94,14 +100,28 @@ public class MeetingController {
         return ResponseEntity.accepted().body(response(store.find(id).orElseThrow()));
     }
 
-    /** The screen recording with sound, for people to watch (the browser plays it; seeking uses range requests). */
+    /** Adds an existing recording (audio or video file); it is prepared, transcribed and summarised in the background. */
+    @PostMapping(path = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<MeetingResponse> importRecording(@RequestParam("file") MultipartFile file) throws IOException {
+        if (file.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The uploaded file is empty");
+        try (InputStream content = file.getInputStream()) {
+            Meeting meeting = importer.importRecording(file.getOriginalFilename(), content);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response(meeting));
+        }
+    }
+
+    /**
+     * The recording to watch or listen to: the screen with sound, or an uploaded audio file (the browser plays it;
+     * seeking uses range requests).
+     */
     @GetMapping("/{id}/recording")
     public ResponseEntity<Resource> recording(@PathVariable("id") String id) {
         Meeting meeting = store.find(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found"));
-        Meeting.Track screen = meeting.tracks().stream().filter(t -> t.kind().equals(MeetingRecorder.SCREEN)).findFirst().orElse(null);
-        Path video = screen == null ? null : store.folder(id).map(f -> f.resolve(screen.file())).filter(Files::isRegularFile).orElse(null);
-        if (video == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Recording not found");
-        return ResponseEntity.ok().contentType(MediaType.parseMediaType("video/mp4")).body(new FileSystemResource(video));
+        Meeting.Track playback = meeting.playback();
+        Path file = playback == null ? null : store.folder(id).map(f -> f.resolve(playback.file())).filter(Files::isRegularFile).orElse(null);
+        if (file == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Recording not found");
+        MediaType type = MediaTypeFactory.getMediaType(file.getFileName().toString()).orElse(MediaType.APPLICATION_OCTET_STREAM);
+        return ResponseEntity.ok().contentType(type).body(new FileSystemResource(file));
     }
 
     /** The readable transcript (Markdown, shown as plain text in the browser). */

@@ -63,7 +63,7 @@ public record VisionTrackProperties(
      */
     public record Meetings(
             @NotNull Path directory,
-            @DecimalMin("0.1") @DecimalMax("5.0") double screenFps,
+            @DecimalMin("0.1") @DecimalMax("60.0") double screenFps,
             @Min(10) int segmentSeconds,
             @Min(1) int maxRecordingMinutes,
             Path ffmpegDir,

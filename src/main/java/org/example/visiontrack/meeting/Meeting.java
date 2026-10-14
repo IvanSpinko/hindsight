@@ -59,6 +59,21 @@ public record Meeting(
                 null, null, null, null, null);
     }
 
+    /** An uploaded recording, ready to be prepared and processed; {@code screenCapture} names the uploaded file. */
+    static Meeting uploaded(String id, String title, String fileName, List<Track> tracks) {
+        Instant now = Instant.now();
+        return new Meeting(id, title, Status.RECORDED, now, now, "Uploaded: " + fileName, null, tracks, null,
+                null, null, null, null, null);
+    }
+
+    /** The same meeting with its tracks replaced, e.g. an uploaded file turned into playable and speech tracks. */
+    Meeting withTracks(List<Track> newTracks) {
+        double duration = newTracks.stream().mapToDouble(Track::durationSeconds).max().orElse(0);
+        Instant end = startedAt.plusMillis(Math.round(duration * 1000));
+        return new Meeting(id, title, status, startedAt, end, screenCapture, microphone, newTracks, capturePids, warnings,
+                error, processing, transcription, notes);
+    }
+
     Meeting withWarning(String warning) {
         List<String> all = new ArrayList<>(warnings);
         if (!all.contains(warning)) all.add(warning);
@@ -97,6 +112,12 @@ public record Meeting(
     /** The recording file to process: the combined recording, or the screen video if combining failed. */
     Track screenTrack() {
         return track(MeetingRecorder.SCREEN);
+    }
+
+    /** What people watch or listen to: the screen recording, or an uploaded audio file; null if neither exists. */
+    public Track playback() {
+        Track screen = track(MeetingRecorder.SCREEN);
+        return screen != null ? screen : track(RecordingImport.AUDIO);
     }
 
     Track track(String kind) {

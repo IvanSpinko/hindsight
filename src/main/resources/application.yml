@@ -55,8 +55,8 @@ visiontrack:
   meetings:
     # One folder per meeting: <date>_<time>_<title> with video/, audio/ and meeting.json
     directory: ${user.home}/Documents/VisionTrack/Meetings
-    # Screen frames per second: the screen is kept for people to rewatch, it is not analysed
-    screen-fps: 1
+    # Screen frames per second: the screen is kept for people to rewatch (smooth like a video), it is not analysed
+    screen-fps: 30
     # Recording is written in parts of this length, so a crash loses at most the unfinished part
     segment-seconds: 300
     max-recording-minutes: 360

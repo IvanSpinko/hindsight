@@ -18,12 +18,15 @@ final class ScreenCapture {
     enum Method { DDAGRAB, GDIGRAB }
 
     // The recording is for people to rewatch, so the mouse pointer is kept: it shows what was pointed at
-    // H.264 needs even sizes; a slow-changing screen at 1-2 fps compresses well, so a modest bitrate keeps text sharp
+    // H.264 needs even sizes
     private static final String EVEN_SIZE = "scale=trunc(iw/2)*2:trunc(ih/2)*2";
-    // No B-frames: they shift the first timestamps of a part by seconds at 1 fps. Forced keyframes must be IDR
-    // frames, or the segment muxer cannot start a new part there.
+    // Constant quality: a still screen costs almost nothing, scrolling and shared videos get up to 8 Mbit/s, and
+    // text stays sharp (measured at 2560x1440, 30 fps: ~0.4-0.6 GB per hour of a mostly still screen).
+    // No B-frames: they shift the first timestamps of a part at low frame rates. Forced keyframes must be IDR
+    // frames, or the segment muxer cannot start a new part there; a regular keyframe every 2 s keeps seeking quick.
     static final List<String> ENCODER = List.of(
-            "-c:v", "h264_nvenc", "-bf", "0", "-forced-idr", "1", "-b:v", "800k", "-g", "30");
+            "-c:v", "h264_nvenc", "-bf", "0", "-forced-idr", "1",
+            "-rc", "vbr", "-cq", "28", "-b:v", "0", "-maxrate", "8M", "-bufsize", "16M", "-g", "60");
 
     private ScreenCapture() {}
 

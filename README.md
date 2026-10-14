@@ -31,6 +31,7 @@ Open http://localhost:8080, drop in a video and wait for the results. Settings l
 | POST   | `/api/meetings/start`             | `{"title", "monitor", "microphone"}` → starts recording   |
 | POST   | `/api/meetings/{id}/stop`         | stops, builds `recording.mp4` (screen + sound) and starts processing |
 | GET    | `/api/meetings`, `/api/meetings/{id}` | recorded meetings (read from their folders)           |
+| POST   | `/api/meetings/import`            | multipart `file`: an audio or video recording to process like a meeting |
 | POST   | `/api/meetings/{id}/process`      | runs the processing again                                 |
 | GET    | `/api/meetings/{id}/notes`        | the notes (`notes.md`)                                    |
 | GET    | `/api/meetings/{id}/transcript`   | the transcript (`transcript.md`)                          |
@@ -38,7 +39,7 @@ Open http://localhost:8080, drop in a video and wait for the results. Settings l
 | POST   | `/api/meetings/{id}/open-folder`  | opens the meeting folder in Explorer                      |
 
 Recordings go to `Documents\VisionTrack\Meetings\<date>_<time>_<title>\`. The screen (ffmpeg `ddagrab`,
-falling back to `gdigrab`, 1 fps, encoded by NVENC), the microphone (`dshow`, 16 kHz mono) and the system sound,
+falling back to `gdigrab`, 30 fps, encoded by NVENC), the microphone (`dshow`, 16 kHz mono) and the system sound,
 i.e. the other participants (WASAPI loopback via `tools\audio-loopback\audio-loopback.exe` piped into ffmpeg),
 are captured by the ffmpeg bundled with JavaCV in separate processes, written in 5-minute parts, so a crash keeps what was
 recorded; unfinished meetings are joined on the next start. The screen is only for people to rewatch: the notes

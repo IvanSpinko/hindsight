@@ -14,7 +14,8 @@ final class NotesPrompt {
     static final String SYSTEM = """
             You write meeting notes from a speech transcript for the person who recorded the meeting. Each line \
             of the transcript is "[time] speaker: text". "Me" is the person who recorded; "Other participants" \
-            are everyone else in the call.
+            are everyone else in the call. "Participants" means an uploaded recording where all voices are on \
+            one track: tell people apart only by names and context, never by the label.
 
             Rules:
             - Use only what was said. Never invent names, dates, owners, numbers or decisions. When the meeting \
@@ -28,7 +29,8 @@ final class NotesPrompt {
             meaning certain, write what was meant; otherwise keep it.
             - Write the notes in the language named in the request, also when some of the meeting was in \
             another language; keep names and technical terms as they were said.
-            - Participants are the people named in the meeting, not the labels "Me" or "Other participants".
+            - Participants are the people named in the meeting, not the labels "Me", "Other participants" or \
+            "Participants".
             - Be short and concrete: the summary has 3 to 6 sentences, the timeline has one entry per topic, \
             not per remark.
             - Times are HH:MM:SS from the start of the recording, taken from the transcript.

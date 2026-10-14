@@ -1,7 +1,7 @@
 # Meeting notes: handoff for the next session
 
 Status as of 2026-10-14. Read this together with `docs/meeting-notes-spec.md` (the spec, version 2.0).
-Goal for the next session: **stage 6 (upload a recording)**, then stage 7 (Notion).
+Goal for the next session: **stage 7 (Notion export)**, then stage 8 (Settings tab).
 
 ## 1. Where things stand
 
@@ -14,15 +14,15 @@ Goal for the next session: **stage 6 (upload a recording)**, then stage 7 (Notio
 | GPU only, clear error without CUDA | done | `62a7800` |
 | 4 notes with a local model + Markdown | done | `dfe31db` |
 | 5 system audio (WASAPI loopback), echo filter, VRAM check | done | see `git log` ("Meetings: system sound ...") |
-| 6 upload a recording | **next** | |
-| 7 Notion export | todo | |
+| 6 upload a recording, screen at 30 fps | done | see `git log` ("Meetings: upload ...") |
+| 7 Notion export | **next** | |
 | 8 Settings tab | todo | |
 | 9 build for a friend | todo | |
 
 - Repository: https://github.com/IvanSpinko/visiontrack-object-detection-aws, remote `origin`.
 - Work happens on branch `meeting-notes`; `main` and tag `v1.0-video` are the video-analysis release.
   Merge `meeting-notes` into `main` (pull request) when the user asks.
-- Tests: 76, all green (`mvn package`). They need the NVIDIA GPU (NVENC in the capture tests).
+- Tests: 84, all green (`mvn package`). They need the NVIDIA GPU (NVENC in the capture tests).
 
 ## 2. Working agreement with the user
 
@@ -51,7 +51,7 @@ Goal for the next session: **stage 6 (upload a recording)**, then stage 7 (Notio
 
 ```
 Start ─► MeetingRecorder ─► ffmpeg processes (bundled with JavaCV)
-           screen: ddagrab (fallback gdigrab), 1 fps, pointer, NVENC ─► video/screen-NNN.mkv
+           screen: ddagrab (fallback gdigrab), 30 fps, pointer, NVENC ─► video/screen-NNN.mkv
            mic:    dshow, 16 kHz mono PCM                             ─► audio/mic-NNN.mkv
            system: audio-loopback.exe | ffmpeg (f32le pipe → 16 kHz)   ─► audio/system-NNN.mkv
 Stop  ─► parts joined: recording.mp4 (screen + mic and system mixed with amix, AAC), audio/mic.wav, audio/system.wav
@@ -118,23 +118,34 @@ Stop  ─► parts joined: recording.mp4 (screen + mic and system mixed with ami
 - Measured: a 3-minute meeting ~15 s; Whisper + notes for a 42 s Russian clip 22 s, peak VRAM 8.5 GB of 12
   (about 3.1 GB of it used by Windows and other programs).
 
-## 4. Stage 6: what to build next (upload a recording)
+### Upload and screen rate (stage 6)
+- `MeetingImporter` (`POST /api/meetings/import`) saves the file as `upload/source.<ext>` in a new meeting folder
+  with one track `upload` and queues it; `MeetingJobService.prepareUpload` runs `RecordingImport.prepare` first
+  (step "Preparing the recording"): `audio/mixed.wav` for Whisper, `recording.mp4` (H.264 copied, else NVENC) or
+  `recording.<ext>` for audio (track kind `audio`). `Meeting.playback()` is what `/recording` serves.
+- Transcript source `mixed` → speaker "Participants"; `LocalNotesGenerator.withoutUnknownMe` removes "Me" owners
+  when the recorder's microphone is not in the transcript.
+- Checked on 2026-10-14 in the running app: Russian TTS as mp3 and English as VP9/Opus webm → READY with transcript
+  and notes; a .txt is refused with 400.
+- Screen recording at 30 fps (`screen-fps: 30`), NVENC constant quality (`-rc vbr -cq 28 -b:v 0 -maxrate 8M`,
+  keyframe every 2 s): ~0.4-0.6 GB per hour on a mostly still 2560x1440 screen, up to ~3.6 GB with constant motion.
+  Measured 30.0 fps in the running app.
+
+## 4. Stage 7: what to build next (Notion export)
 
 Plan to propose to the user:
-- `POST /api/meetings/import` (multipart; Spring already allows 2 GB): audio (mp3, m4a, wav, ogg, flac) or video
-  (mp4, mkv, webm, mov). Create the meeting folder like a recording (title from the file name, date from the file
-  or now), copy the upload, extract `audio/recording.wav` (16 kHz mono) with ffmpeg; keep a video as
-  `recording.mp4` (stream copy when the browser can play it, NVENC re-encode otherwise) so "Recording" works.
-- A new track source for mixed audio, e.g. `mixed` → transcript speaker "Participants"; `TranscriptWriter.speaker()`
-  and `NotesPrompt.SYSTEM` must explain it (no "Me" in uploaded recordings). `EchoFilter` does nothing then.
-- Then `MeetingJobService.submit` as usual; status RECORDED → PROCESSING → READY.
-- UI: "Upload a recording" button + drag & drop in the Meetings tab, upload progress (XHR like video analysis).
-- Tests: import of an audio and a video file made with the bundled ffmpeg (lavfi sine/testsrc), speaker labels.
-- Acceptance: an mp3 and an mp4 (e.g. a Zoom or OBS recording) get a transcript and notes.
+- Before coding: check the current Notion API version and objects (`Notion-Version` header, databases vs data
+  sources, file uploads), e.g. via WebFetch of developers.notion.com.
+- Settings: the Notion integration token and the target page/database in `%LOCALAPPDATA%\VisionTrack\settings.json`
+  (stage 8 adds the UI; until then edited by hand, like the Claude key was planned). Never in jar, git or logs.
+- `NotionExporter implements NotesExporter`: "Meetings" database row (Name, Date, Duration, Project, Tags,
+  Participants, Type) + page body Summary → Decisions → Action items (to-do blocks) → Timeline → Transcript
+  (toggle); limits ≤ 100 blocks per request, ≤ 2000 chars per rich text, ~3 req/s with retries.
+- Export status in `meeting.json`, a "Send to Notion" / "Retry" button; the local notes stay the source of truth.
+- Tests: block building and splitting by limits against a stub HTTP server.
 
 ## 5. Later stages: reminders
-- **7 Notion**: check the current Notion API version before coding; limits ≤ 100 blocks per request,
-  ≤ 2000 chars per rich text, ~3 req/s; retry button; "Create databases" button. Token in settings.json.
+- **7 Notion** details: "Create databases" button; optional "Tasks" database with relation to the meeting.
 - **8 Settings**: `%LOCALAPPDATA%\VisionTrack\settings.json`, devices with level test, Notion token,
   delete audio after processing.
 - **9 build for a friend**: add `tools/` and `models/` to `packaging/build-desktop.ps1` (the jpackage app needs

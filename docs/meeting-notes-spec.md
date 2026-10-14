@@ -43,7 +43,7 @@ payments, installer signing, macOS/Linux desktop, AMD/DirectML, live transcript 
 ## 5. Functional requirements
 
 ### 5.1 Capture
-- **Screen:** FFmpeg `ddagrab` (fallback: `gdigrab`), 1 frame per second, with the mouse pointer, encoded by
+- **Screen:** FFmpeg `ddagrab` (fallback: `gdigrab`), 30 frames per second, with the mouse pointer, encoded by
   NVENC. Only for people to watch.
 - **Microphone:** FFmpeg `dshow` → transcript speaker "Me".
 - **System audio (other participants): required.** WASAPI loopback of the default output device; FFmpeg cannot
@@ -63,10 +63,14 @@ payments, installer signing, macOS/Linux desktop, AMD/DirectML, live transcript 
   is shown that participants must consent to being recorded.
 
 ### 5.2 Uploading a recording
-- Audio (mp3, m4a, wav, ogg, flac) or video (mp4, mkv, webm, mov). Only the sound is used.
-- The file is copied into a new meeting folder; ffmpeg extracts 16 kHz mono audio for speech recognition.
-  A video is kept as `recording.mp4` (re-encoded with NVENC only if the browser cannot play it).
-- All voices are on one track, so the transcript speaker is "Participants" (no "Me").
+- Audio (mp3, m4a, wav, ogg, oga, opus, flac, aac, wma) or video (mp4, mkv, webm, mov, avi, m4v, wmv), up to
+  2 GB, in the Meetings tab (button or drag & drop) or `POST /api/meetings/import`. Only the sound is used.
+- The upload is saved into a new meeting folder (title from the file name, date = upload time) and queued; the
+  first processing step "Preparing the recording" (`RecordingImport`) extracts 16 kHz mono audio
+  (`audio/mixed.wav`) for speech recognition. A video becomes `recording.mp4`: H.264 is copied, other codecs are
+  re-encoded with NVENC; an audio file is kept as `recording.<ext>`. Album covers in audio files are not video.
+- All voices are on one track, so the transcript speaker is "Participants" (no "Me"); an action item the model
+  gives to "Me" in such a recording gets no owner.
 
 ### 5.3 Speech recognition
 - whisper.cpp (`large-v3-turbo` q8_0) on CUDA as a child process; without CUDA the step fails with
@@ -168,7 +172,7 @@ Package `org.example.visiontrack.meeting`:
 | 3 | Whisper on GPU, Russian + English | done; without CUDA a clear "NVIDIA GPU required" error |
 | 4 | Notes with a local model + Markdown | done; `notes.json` follows the schema, `notes.md` is readable; without the model only the transcript is saved |
 | 5 | System audio (loopback) | done; the other participant's voice is in the transcript as "Other participants"; echo duplicates removed |
-| 6 | Upload a recording | an mp3 / mp4 from Zoom or OBS gets a transcript and notes like a recorded meeting |
+| 6 | Upload a recording | done; an mp3 / mp4 / webm gets a transcript and notes like a recorded meeting |
 | 7 | Notion export | page created with all properties and checkboxes; retrying the export works |
 | 8 | "Settings" tab | all settings persist between runs, secrets do not end up in logs |
 | 9 | Build for a friend | `tools\` and `models\` in the archive, lightweight jar without Linux natives, updated `README.txt` (NVIDIA driver 528+, 12 GB VRAM recommended, recording consent) |
