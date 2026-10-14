@@ -225,6 +225,8 @@
           <select id="m-monitor"></select>
           <label for="m-mic">Microphone</label>
           <select id="m-mic"></select>
+          <label>Other participants</label>
+          <span class="muted" id="m-system">…</span>
         </div>
         <div class="row">
           <button id="m-start" disabled>Start recording</button>
@@ -801,6 +803,10 @@
       $('m-monitor').replaceChildren(...devices.monitors.map(m =>
         new Option(m.width ? `${m.name} · ${m.width}×${m.height}` : m.name, m.index)));
       $('m-mic').replaceChildren(...devices.microphones.map(name => new Option(name, name)));
+      // The call is heard through the default output device; use headphones so the microphone does not pick it up
+      $('m-system').textContent = devices.systemAudio
+        ? `${devices.systemAudio} (what the computer plays; headphones recommended)`
+        : 'Not recorded: the system sound helper is missing (packaging\\build-loopback.ps1)';
       const noMic = devices.microphones.length === 0;
       $('m-status').textContent = noMic ? 'No microphone found. Connect one and press Refresh devices.' : '';
       $('m-start').disabled = noMic;
@@ -903,7 +909,9 @@
       el('span', 'badge ' + meeting.status.toLowerCase(),
         { RECORDING: 'REC', RECORDED: 'Recorded', PROCESSING: 'Processing', READY: 'Ready', FAILED: 'Failed' }[meeting.status] || meeting.status),
       el('span', 'muted', new Date(meeting.startedAt).toLocaleString() + (duration ? ` · ${clock(duration)}` : '')));
-    div.append(head, el('div', 'path', [meeting.screenCapture, meeting.microphone].filter(Boolean).join(' · ')));
+    const sources = [meeting.screenCapture, meeting.microphone];
+    if (meeting.tracks.some(track => track.kind === 'system')) sources.push('system sound');
+    div.append(head, el('div', 'path', sources.filter(Boolean).join(' · ')));
     for (const text of [...meeting.warnings, meeting.error].filter(Boolean)) div.append(el('div', 'warn', text));
     if (meeting.status === 'PROCESSING' && meeting.processing) {
       const bar = el('div', 'progress');

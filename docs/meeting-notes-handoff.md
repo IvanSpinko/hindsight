@@ -1,7 +1,7 @@
 # Meeting notes: handoff for the next session
 
 Status as of 2026-10-14. Read this together with `docs/meeting-notes-spec.md` (the spec, version 2.0).
-Goal for the next session: **stage 5 (system audio)**, then stage 6 (upload a recording).
+Goal for the next session: **stage 6 (upload a recording)**, then stage 7 (Notion).
 
 ## 1. Where things stand
 
@@ -12,9 +12,9 @@ Goal for the next session: **stage 5 (system audio)**, then stage 6 (upload a re
 | 2 one `recording.mp4` (slide detector removed later) | done | `62e1999` |
 | 3 Whisper on GPU, Russian + English | done | `65387dc` |
 | GPU only, clear error without CUDA | done | `62a7800` |
-| 4 notes with a local model + Markdown | done | see `git log` ("Meetings: notes ...") |
-| 5 system audio (WASAPI loopback) | **next** | |
-| 6 upload a recording | todo | |
+| 4 notes with a local model + Markdown | done | `dfe31db` |
+| 5 system audio (WASAPI loopback), echo filter, VRAM check | done | see `git log` ("Meetings: system sound ...") |
+| 6 upload a recording | **next** | |
 | 7 Notion export | todo | |
 | 8 Settings tab | todo | |
 | 9 build for a friend | todo | |
@@ -22,7 +22,7 @@ Goal for the next session: **stage 5 (system audio)**, then stage 6 (upload a re
 - Repository: https://github.com/IvanSpinko/visiontrack-object-detection-aws, remote `origin`.
 - Work happens on branch `meeting-notes`; `main` and tag `v1.0-video` are the video-analysis release.
   Merge `meeting-notes` into `main` (pull request) when the user asks.
-- Tests: 66, all green (`mvn package`). They need the NVIDIA GPU (NVENC in the capture tests).
+- Tests: 76, all green (`mvn package`). They need the NVIDIA GPU (NVENC in the capture tests).
 
 ## 2. Working agreement with the user
 
@@ -53,13 +53,32 @@ Goal for the next session: **stage 5 (system audio)**, then stage 6 (upload a re
 Start ─► MeetingRecorder ─► ffmpeg processes (bundled with JavaCV)
            screen: ddagrab (fallback gdigrab), 1 fps, pointer, NVENC ─► video/screen-NNN.mkv
            mic:    dshow, 16 kHz mono PCM                             ─► audio/mic-NNN.mkv
-Stop  ─► parts joined: recording.mp4 (screen + AAC sound) and audio/mic.wav
+           system: audio-loopback.exe | ffmpeg (f32le pipe → 16 kHz)   ─► audio/system-NNN.mkv
+Stop  ─► parts joined: recording.mp4 (screen + mic and system mixed with amix, AAC), audio/mic.wav, audio/system.wav
       ─► MeetingJobService (background, one at a time, resumed after restart)
            0. ObjectDetectorProvider.unloadIfUnused (frees YOLO's VRAM)
-           1. WhisperCppTranscriber ─► transcript.json + transcript.md
-           2. LlamaServer + LocalNotesGenerator ─► notes.json + notes.md (MarkdownExporter)
+           1. WhisperCppTranscriber (both tracks, one whisper-server) ─► EchoFilter ─► transcript.json + .md
+           2. free VRAM check (llama-server --list-devices) ─► LlamaServer + LocalNotesGenerator
+              ─► notes.json + notes.md (MarkdownExporter)
            status RECORDED → PROCESSING (step + percent) → READY / FAILED
 ```
+
+### System sound (stage 5)
+- `native/audio-loopback/AudioLoopback.cs`: WASAPI loopback of the default output device via raw COM interop,
+  float32 PCM to stdout at the device format (`--info` prints `<rate> <channels> <name>`); silence is written by
+  the clock when Windows sends nothing (nothing playing). Built by `packaging/build-loopback.ps1` with
+  `%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe` (C# 5: no string interpolation, no `?.`) into
+  `tools/audio-loopback/` (gitignored); `get-models.ps1` runs it too.
+- `CaptureProcess.startPiped` runs helper | ffmpeg with `ProcessBuilder.startPipeline`; stop = destroy the helper,
+  ffmpeg sees the end of input and closes the last part. Both PIDs go to `meeting.json`; crash recovery kills
+  `ffmpeg*` and `audio-loopback*` processes.
+- If the helper is missing or fails, the meeting records without the system sound and gets a warning.
+- `EchoFilter`: a mic segment is dropped when ≥ 60% of its words are on the system track within ±2 s. Verified on
+  2026-10-14 with a Bluetooth speaker and no headphones: 3 echoed mic segments removed, the phrase kept once as
+  "Other participants".
+- `WhisperCppTranscriber.isSoundLabel` drops "*music playing*", "[Music]", "(applause)", music notes.
+- Free VRAM: `MeetingJobService.notesMemoryProblem` needs model file size + 1 GB; otherwise a warning tells the
+  user how much is free/needed and to press "Process again".
 
 - Meeting folder: `%USERPROFILE%\Documents\VisionTrack\Meetings\YYYY-MM-DD_HH-MM_<title>\`
   with `meeting.json` (the only record; `MeetingStore` scans folders; unknown old fields like `slideCount` are
@@ -99,26 +118,21 @@ Stop  ─► parts joined: recording.mp4 (screen + AAC sound) and audio/mic.wav
 - Measured: a 3-minute meeting ~15 s; Whisper + notes for a 42 s Russian clip 22 s, peak VRAM 8.5 GB of 12
   (about 3.1 GB of it used by Windows and other programs).
 
-## 4. Stage 5: what to build next (system audio)
+## 4. Stage 6: what to build next (upload a recording)
 
 Plan to propose to the user:
-- A native WASAPI loopback helper (`audio-loopback.exe`, C++, built once and kept in `tools/` or built by a
-  script) that captures the default output device and writes 16 kHz mono PCM (or float) to stdout / Matroska
-  parts like the mic capture, so crash safety stays the same. Fallback: "Stereo Mix" dshow device.
-- `MeetingRecorder`: a third capture `system`, its offset on the shared timeline, joined into `audio/system.wav`;
-  `recording.mp4` gets both sounds mixed (ffmpeg `amix`).
-- `MeetingJobService.transcribe`: transcribe `mic` and `system` (one whisper-server for both), merge by time;
-  `TranscriptWriter.speaker()` already maps `system` to "Other participants".
-- Echo duplicates: without headphones the mic hears the speakers. Drop a mic segment when a system segment with
-  nearly the same text overlaps it in time (keep the system one).
-- UI: system audio source in the device list (default output device), level check later (stage 8).
-- Tests: echo filter, merge order, capture arguments. Acceptance: a Zoom/Teams call or a YouTube video in the
-  background ends up in the transcript as "Other participants".
+- `POST /api/meetings/import` (multipart; Spring already allows 2 GB): audio (mp3, m4a, wav, ogg, flac) or video
+  (mp4, mkv, webm, mov). Create the meeting folder like a recording (title from the file name, date from the file
+  or now), copy the upload, extract `audio/recording.wav` (16 kHz mono) with ffmpeg; keep a video as
+  `recording.mp4` (stream copy when the browser can play it, NVENC re-encode otherwise) so "Recording" works.
+- A new track source for mixed audio, e.g. `mixed` → transcript speaker "Participants"; `TranscriptWriter.speaker()`
+  and `NotesPrompt.SYSTEM` must explain it (no "Me" in uploaded recordings). `EchoFilter` does nothing then.
+- Then `MeetingJobService.submit` as usual; status RECORDED → PROCESSING → READY.
+- UI: "Upload a recording" button + drag & drop in the Meetings tab, upload progress (XHR like video analysis).
+- Tests: import of an audio and a video file made with the bundled ffmpeg (lavfi sine/testsrc), speaker labels.
+- Acceptance: an mp3 and an mp4 (e.g. a Zoom or OBS recording) get a transcript and notes.
 
 ## 5. Later stages: reminders
-- **6 upload**: `POST /api/meetings/import` (multipart, up to 2 GB already allowed), audio or video; ffmpeg
-  extracts 16 kHz mono; keep video as `recording.mp4` (NVENC re-encode only when the browser can't play it);
-  transcript speaker "Participants" (one mixed track); drag & drop in the Meetings tab.
 - **7 Notion**: check the current Notion API version before coding; limits ≤ 100 blocks per request,
   ≤ 2000 chars per rich text, ~3 req/s; retry button; "Create databases" button. Token in settings.json.
 - **8 Settings**: `%LOCALAPPDATA%\VisionTrack\settings.json`, devices with level test, Notion token,
@@ -137,12 +151,17 @@ Plan to propose to the user:
 - Without CUDA but with NVENC (e.g. `CUDA_VISIBLE_DEVICES=-1`) screen recording still works: NVENC takes
   ddagrab frames through D3D11. On a PC without NVIDIA ffmpeg fails in `h264_nvenc`, and `MeetingRecorder`
   turns that into "Screen recording needs an NVIDIA graphics card ..." (not testable on this PC).
-- If a video analysis runs while a meeting is processed, YOLO cannot be unloaded and the notes model may not
-  fit into VRAM (llama-server then fails to start; the notes are skipped with a warning).
+- If a video analysis runs while a meeting is processed, YOLO cannot be unloaded; the free VRAM check then skips
+  the notes with a clear warning ("Process again" later).
 - Notes quality: Gemma sometimes turns vague deadlines ("by the end of next week") into a date, and once missed
-  an action item that another run found. The notes footer asks the user to check names and dates.
-- Speech and notes were verified with Windows TTS voices and a hand-written transcript only; ask the user for a
-  real bilingual recording.
+  an action item that another run found. "We decide X today" was listed as a decision until the prompt said a
+  plan to decide later is not one. The notes footer asks the user to check names and dates.
+- Speech and notes were verified with Windows TTS voices, a speaker playing them and a hand-written transcript
+  only; ask the user for a real call (Zoom/Teams) in Russian and English.
+- System sound follows the default output device at the start of the recording; switching headphones/speakers
+  during a call is not followed (the helper keeps the old device, possibly silent).
+- Only the device's own format is supported if it is 32-bit float or 16-bit PCM (the usual Windows mix formats);
+  anything else makes the helper exit with "unsupported output format" (the meeting records without it).
 - Track offsets come from process start times; the screen starts ~1 s later than the mic. Fine for watching.
 - `.idea/vcs.xml` is untracked on purpose (created by IntelliJ); leave it out of commits.
 

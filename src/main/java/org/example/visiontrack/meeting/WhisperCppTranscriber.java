@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -48,29 +49,40 @@ public final class WhisperCppTranscriber implements Transcriber {
     }
 
     @Override
-    public Result transcribe(Path wav, double offsetSeconds, String source, ProgressListener progress) throws IOException {
-        PcmWav audio = PcmWav.read(wav);
+    public Result transcribe(List<Track> tracks, ProgressListener progress) throws IOException {
         List<TranscriptSegment> segments = new ArrayList<>();
         Set<String> languages = new LinkedHashSet<>();
         // The server starts first, so a missing GPU is reported before any other work is done
         try (Loaded loaded = startServer()) {
-            List<SpeechChunks.Span> chunks = SpeechChunks.plan(detectSpeech(wav), audio.durationSeconds());
-            log.info("Speech recognition: {} on {}, {} pieces of speech", loaded.model(), loaded.backend(), chunks.size());
-            for (int i = 0; i < chunks.size(); i++) {
-                SpeechChunks.Span chunk = chunks.get(i);
-                byte[] piece = audio.slice(chunk.start(), chunk.end());
-                WhisperServer.Inference inference = loaded.server().transcribe(piece, "auto");
-                String language = inference.mostLikely(List.of());
-                if (language == null || !settings.languages().contains(language)) {
-                    // Detected a language we do not expect (Ukrainian for Russian, say): use the likeliest allowed one
-                    String allowed = inference.mostLikely(settings.languages());
-                    language = allowed != null ? allowed : settings.languages().getFirst();
-                    inference = loaded.server().transcribe(piece, language);
-                }
-                languages.add(language);
-                segments.addAll(toSegments(inference, offsetSeconds + chunk.start(), source, language));
-                progress.onProgress((i + 1.0) / chunks.size());
+            // All pieces of speech of all tracks, so progress covers the whole job
+            List<PcmWav> audio = new ArrayList<>();
+            List<List<SpeechChunks.Span>> chunks = new ArrayList<>();
+            for (Track track : tracks) {
+                PcmWav wav = PcmWav.read(track.wav());
+                audio.add(wav);
+                chunks.add(SpeechChunks.plan(detectSpeech(track.wav()), wav.durationSeconds()));
             }
+            int total = chunks.stream().mapToInt(List::size).sum();
+            log.info("Speech recognition: {} on {}, {} pieces of speech in {} track(s)", loaded.model(), loaded.backend(), total, tracks.size());
+            int done = 0;
+            for (int t = 0; t < tracks.size(); t++) {
+                Track track = tracks.get(t);
+                for (SpeechChunks.Span chunk : chunks.get(t)) {
+                    byte[] piece = audio.get(t).slice(chunk.start(), chunk.end());
+                    WhisperServer.Inference inference = loaded.server().transcribe(piece, "auto");
+                    String language = inference.mostLikely(List.of());
+                    if (language == null || !settings.languages().contains(language)) {
+                        // Detected a language we do not expect (Ukrainian for Russian, say): use the likeliest allowed one
+                        String allowed = inference.mostLikely(settings.languages());
+                        language = allowed != null ? allowed : settings.languages().getFirst();
+                        inference = loaded.server().transcribe(piece, language);
+                    }
+                    languages.add(language);
+                    segments.addAll(toSegments(inference, track.offsetSeconds() + chunk.start(), track.source(), language));
+                    progress.onProgress(++done / (double) total);
+                }
+            }
+            segments.sort(Comparator.comparingDouble(TranscriptSegment::start));
             return new Result(segments, loaded.model(), loaded.backend(), List.copyOf(languages));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -85,7 +97,7 @@ public final class WhisperCppTranscriber implements Transcriber {
     static List<TranscriptSegment> toSegments(WhisperServer.Inference inference, double offset, String source, String language) {
         List<TranscriptSegment> result = new ArrayList<>();
         for (WhisperServer.Piece piece : inference.pieces()) {
-            if (piece.likelyHallucination() || piece.text().isBlank()) continue;
+            if (piece.likelyHallucination() || piece.text().isBlank() || isSoundLabel(piece.text())) continue;
             boolean continuation = !result.isEmpty() && !Character.isWhitespace(piece.text().charAt(0));
             if (continuation) {
                 TranscriptSegment last = result.removeLast();
@@ -95,6 +107,15 @@ public final class WhisperCppTranscriber implements Transcriber {
             }
         }
         return result;
+    }
+
+    /**
+     * Whisper labels noise instead of transcribing it: "*music playing*", "[Music]", "(applause)", music notes.
+     * Such a piece is not speech and would only mislead the notes.
+     */
+    static boolean isSoundLabel(String text) {
+        String t = text.strip();
+        return t.matches("[*\\[(].*[*\\])]") || t.chars().allMatch(c -> c == '♪' || c == '♫' || Character.isWhitespace(c));
     }
 
     private static double round(double seconds) {

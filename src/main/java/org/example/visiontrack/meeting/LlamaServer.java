@@ -15,9 +15,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A llama.cpp {@code llama-server} process on 127.0.0.1 with the notes model fully on the GPU. It is started for
@@ -90,18 +93,27 @@ final class LlamaServer implements LocalNotesGenerator.Model, AutoCloseable {
         throw new IOException("llama-server did not start in " + STARTUP_TIMEOUT.toMinutes() + " min");
     }
 
-    /** Whether llama.cpp sees a CUDA device ({@code --list-devices} prints e.g. "CUDA0: NVIDIA GeForce RTX 5070"). */
-    static boolean hasCudaDevice(Path executable) throws IOException, InterruptedException {
+    /** A CUDA device as llama.cpp sees it, with the video memory free right now. */
+    record CudaDevice(String name, long totalMiB, long freeMiB) {}
+
+    private static final Pattern DEVICE = Pattern.compile("^\\s*CUDA\\d+:\\s*(.+?)\\s*\\((\\d+) MiB, (\\d+) MiB free\\)");
+
+    /** The CUDA devices ({@code --list-devices} prints e.g. "CUDA0: NVIDIA GeForce RTX 5070 (12226 MiB, 11035 MiB free)"). */
+    static List<CudaDevice> cudaDevices(Path executable) throws IOException, InterruptedException {
         Process process = new ProcessBuilder(executable.toString(), "--list-devices").redirectErrorStream(true).start();
         process.getOutputStream().close();
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         if (!process.waitFor(1, TimeUnit.MINUTES)) process.destroyForcibly();
-        return listsCudaDevice(output);
+        return parseDevices(output);
     }
 
-    static boolean listsCudaDevice(String listDevicesOutput) {
-        int devices = listDevicesOutput.indexOf("Available devices:");
-        return devices >= 0 && listDevicesOutput.substring(devices).lines().anyMatch(line -> line.strip().startsWith("CUDA"));
+    static List<CudaDevice> parseDevices(String listDevicesOutput) {
+        List<CudaDevice> devices = new ArrayList<>();
+        for (String line : listDevicesOutput.lines().toList()) {
+            Matcher m = DEVICE.matcher(line);
+            if (m.find()) devices.add(new CudaDevice(m.group(1), Long.parseLong(m.group(2)), Long.parseLong(m.group(3))));
+        }
+        return devices;
     }
 
     @Override

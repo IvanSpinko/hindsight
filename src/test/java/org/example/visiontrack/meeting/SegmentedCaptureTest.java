@@ -65,6 +65,25 @@ class SegmentedCaptureTest {
         assertThat(Files.size(output)).isCloseTo((long) (ffmpeg.durationSeconds(output) * 32_000), within(4_000L));
     }
 
+    @Test
+    void pipedSystemSoundStopsWithItsSourceAndKeepsEveryPart() throws Exception {
+        // A stand-in for audio-loopback: ffmpeg writing float stereo PCM to stdout in real time
+        List<String> source = List.of(ffmpeg.executable().toString(), "-hide_banner", "-loglevel", "error", "-re",
+                "-f", "lavfi", "-i", "sine=frequency=330:sample_rate=44100", "-ac", "2", "-f", "f32le", "-");
+        List<String> args = SystemAudioCapture.args(new SystemAudioCapture.Device(44100, 2, "test"), dir, "system", 1, 60);
+        CaptureProcess process = CaptureProcess.startPiped("system", source, ffmpeg.executable(), args, dir.resolve("logs/system.log"));
+        assertThat(process.pids()).hasSize(2);
+        assertThat(process.survives(Duration.ofMillis(3000))).as(process.errorTail()).isTrue();
+        double seconds = (System.nanoTime() - process.startedAtNanos()) / 1e9;
+
+        process.stop(Duration.ofSeconds(10));
+
+        assertThat(process.isAlive()).isFalse();
+        Path output = dir.resolve("system.wav");
+        ffmpeg.concat(parts("system"), output);
+        assertThat(ffmpeg.durationSeconds(output)).isCloseTo(seconds, within(1.0));
+    }
+
     /** Captures for ~3 s, stops gracefully and returns the wall-clock duration. */
     private double record(List<String> args) throws Exception {
         CaptureProcess process = CaptureProcess.start("test", ffmpeg.executable(), args, dir.resolve("logs/test.log"));

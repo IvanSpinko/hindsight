@@ -91,21 +91,38 @@ public final class Ffmpeg {
         }
     }
 
+    /** An audio track for {@link #mux}: {@code offsetSeconds} delays (or, if negative, advances) it against the video. */
+    public record AudioInput(Path file, double offsetSeconds) {}
+
     /**
-     * Puts a video and an audio track into one MP4 for playback: the video is copied, the audio becomes AAC.
-     * {@code audioOffsetSeconds} delays (or, if negative, advances) the audio to line it up with the video.
+     * Puts a video and its audio tracks (microphone, system sound) into one MP4 for playback: the video is copied,
+     * the audio tracks are mixed into one AAC track.
      */
-    public void mux(Path video, Path audio, double audioOffsetSeconds, Path output) throws IOException {
-        List<String> args = new ArrayList<>(List.of("-hide_banner", "-loglevel", "error", "-y", "-i", video.toString()));
-        if (audio != null) {
-            args.addAll(List.of("-itsoffset", String.format(Locale.ROOT, "%.3f", audioOffsetSeconds), "-i", audio.toString(),
-                    "-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "96k"));
-        }
-        args.addAll(List.of("-c:v", "copy", "-movflags", "+faststart", output.toString()));
-        Result result = run(args, Duration.ofMinutes(30));
+    public void mux(Path video, List<AudioInput> audio, Path output) throws IOException {
+        Result result = run(muxArgs(video, audio, output), Duration.ofMinutes(30));
         if (result.exitCode() != 0 || !Files.isRegularFile(output)) {
             throw new IOException("Cannot create " + output.getFileName() + ": " + result.output().strip());
         }
+    }
+
+    static List<String> muxArgs(Path video, List<AudioInput> audio, Path output) {
+        List<String> args = new ArrayList<>(List.of("-hide_banner", "-loglevel", "error", "-y", "-i", video.toString()));
+        for (AudioInput input : audio) {
+            args.addAll(List.of("-itsoffset", String.format(Locale.ROOT, "%.3f", input.offsetSeconds()), "-i", input.file().toString()));
+        }
+        args.addAll(List.of("-map", "0:v"));
+        if (audio.size() == 1) {
+            args.addAll(List.of("-map", "1:a"));
+        } else if (audio.size() > 1) {
+            // normalize=0 keeps each voice at its own level instead of halving both
+            StringBuilder mix = new StringBuilder();
+            for (int i = 1; i <= audio.size(); i++) mix.append('[').append(i).append(":a]");
+            mix.append("amix=inputs=").append(audio.size()).append(":duration=longest:normalize=0[mixed]");
+            args.addAll(List.of("-filter_complex", mix.toString(), "-map", "[mixed]"));
+        }
+        if (!audio.isEmpty()) args.addAll(List.of("-c:a", "aac", "-b:a", "96k"));
+        args.addAll(List.of("-c:v", "copy", "-movflags", "+faststart", output.toString()));
+        return args;
     }
 
     private static Result execute(Path executable, List<String> args, Duration timeout) throws IOException {

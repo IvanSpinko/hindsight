@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -38,6 +39,8 @@ public class MeetingJobService {
     /** Warnings of the notes step start with this, so processing again replaces them. */
     static final String NOTES_WARNING = "Notes: ";
     static final String NOTES_JSON = "notes.json";
+    /** Video memory the notes model needs on top of its file size: context (16k tokens) and work buffers. */
+    static final long NOTES_EXTRA_MIB = 1024;
 
     private static final Logger log = LoggerFactory.getLogger(MeetingJobService.class);
 
@@ -105,10 +108,17 @@ public class MeetingJobService {
         }
     }
 
-    /** Recognises the microphone track; returns null (with a warning) when speech recognition is not installed. */
+    /**
+     * Recognises the audio tracks (the microphone and the system sound) and removes echoes of the other
+     * participants from the microphone track; returns null (with a warning) when speech recognition is not installed.
+     */
     private Meeting.Transcription transcribe(Meeting meeting, Path folder) throws IOException {
-        Meeting.Track mic = meeting.track(MeetingRecorder.MIC);
-        if (mic == null || !Files.isRegularFile(folder.resolve(mic.file()))) return null;
+        List<Transcriber.Track> tracks = meeting.tracks().stream()
+                .filter(t -> t.kind().equals(MeetingRecorder.MIC) || t.kind().equals(MeetingRecorder.SYSTEM))
+                .filter(t -> Files.isRegularFile(folder.resolve(t.file())))
+                .map(t -> new Transcriber.Track(folder.resolve(t.file()), t.startOffsetMillis() / 1000.0, t.kind()))
+                .toList();
+        if (tracks.isEmpty()) return null;
         if (!WhisperCppTranscriber.isInstalled(whisper)) {
             String warning = "Speech recognition is not installed (" + whisper.directory() + "), the transcript was skipped";
             log.warn("Meeting {}: {}", meeting.id(), warning);
@@ -116,8 +126,13 @@ public class MeetingJobService {
             return null;
         }
         Transcriber transcriber = new WhisperCppTranscriber(whisper, json, folder.resolve("logs"));
-        Transcriber.Result result = transcriber.transcribe(folder.resolve(mic.file()), mic.startOffsetMillis() / 1000.0,
-                MeetingRecorder.MIC, progressSaver(meeting.id(), STEP_SPEECH));
+        Transcriber.Result recognised = transcriber.transcribe(tracks, progressSaver(meeting.id(), STEP_SPEECH));
+        List<TranscriptSegment> withoutEchoes = EchoFilter.removeEchoes(recognised.segments());
+        if (withoutEchoes.size() < recognised.segments().size()) {
+            log.info("Meeting {}: {} echoed segments removed from the microphone track", meeting.id(),
+                    recognised.segments().size() - withoutEchoes.size());
+        }
+        Transcriber.Result result = new Transcriber.Result(withoutEchoes, recognised.model(), recognised.backend(), recognised.languages());
         transcripts.write(folder, meeting.title(), result);
         return new Meeting.Transcription(result.model(), result.backend(), result.languages(), result.segments().size());
     }
@@ -143,11 +158,18 @@ public class MeetingJobService {
                 duration, segments);
         String model = notesSettings.model().getFileName().toString().replaceFirst("(?i)\\.gguf$", "");
         store.find(meeting.id()).ifPresent(m -> store.save(m.processing(STEP_NOTES, 0)));
+        List<LlamaServer.CudaDevice> gpus;
         try {
-            if (!LlamaServer.hasCudaDevice(server)) throw new GpuRequiredException("Writing notes");
+            gpus = LlamaServer.cudaDevices(server);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Writing notes was interrupted", e);
+        }
+        if (gpus.isEmpty()) throw new GpuRequiredException("Writing notes");
+        String memory = notesMemoryProblem(gpus.getFirst(), Files.size(notesSettings.model()));
+        if (memory != null) {
+            warn(meeting.id(), NOTES_WARNING + memory);
+            return null;
         }
         try (LlamaServer llama = LlamaServer.start(server, notesSettings.model(), notesSettings.contextTokens(),
                 folder.resolve("logs/llama.log"), json)) {
@@ -165,6 +187,19 @@ public class MeetingJobService {
             Thread.currentThread().interrupt();
             throw new IOException("Writing notes was interrupted", e);
         }
+    }
+
+    /**
+     * The notes model needs about its file size in video memory plus the context and work buffers (measured: the
+     * 7.0 GB Gemma file took 7.7 GB). Other programs may hold the rest of the GPU (a game, a video editor, the
+     * call itself), so the free memory is checked first and the user is told what to do instead of a failed start.
+     */
+    static String notesMemoryProblem(LlamaServer.CudaDevice gpu, long modelBytes) {
+        long neededMiB = modelBytes / (1024 * 1024) + NOTES_EXTRA_MIB;
+        if (gpu.freeMiB() >= neededMiB) return null;
+        return String.format(Locale.ROOT, "not enough free video memory for the notes model: %.1f GB free of %.1f GB, about %.1f GB "
+                        + "needed. Close programs that use the graphics card (games, video editors, other AI apps) and press Process again.",
+                gpu.freeMiB() / 1024.0, gpu.totalMiB() / 1024.0, neededMiB / 1024.0);
     }
 
     private List<TranscriptSegment> readTranscript(Path folder) throws IOException {

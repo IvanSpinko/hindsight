@@ -58,7 +58,8 @@ public record VisionTrackProperties(
     /**
      * Meeting recording. {@code ffmpegDir} overrides the ffmpeg bundled with JavaCV (a folder with
      * ffmpeg.exe and ffprobe.exe); {@code maxRecordingMinutes} also stops captures orphaned by a crash.
-     * The screen is recorded for people to watch later; only the speech is analysed.
+     * The screen is recorded for people to watch later; only the speech is analysed. {@code systemAudioHelper}
+     * is audio-loopback.exe, which captures what the computer plays (the other participants).
      */
     public record Meetings(
             @NotNull Path directory,
@@ -66,6 +67,7 @@ public record VisionTrackProperties(
             @Min(10) int segmentSeconds,
             @Min(1) int maxRecordingMinutes,
             Path ffmpegDir,
+            Path systemAudioHelper,
             @Valid @NotNull Whisper whisper,
             @Valid @NotNull Notes notes
     ) {}

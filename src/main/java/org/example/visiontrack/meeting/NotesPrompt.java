@@ -19,7 +19,8 @@ final class NotesPrompt {
             Rules:
             - Use only what was said. Never invent names, dates, owners, numbers or decisions. When the meeting \
             does not say something, use null or an empty list.
-            - A decision is something the meeting agreed on, not an idea that was only mentioned.
+            - A decision is something the meeting agreed on, not an idea that was only mentioned and not a plan \
+            to decide later (that is an open question or a timeline topic).
             - An action item is a task someone will do. Its owner is the person named or clearly meant ("Me" \
             when the recorder takes it on). Fill in the due date only when a date, or a day relative to the \
             meeting date, was said; write it as YYYY-MM-DD.

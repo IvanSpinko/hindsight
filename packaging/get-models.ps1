@@ -1,5 +1,6 @@
 # Downloads what meeting processing runs on the GPU: whisper.cpp (speech recognition) into tools\whisper,
-# llama.cpp (notes) into tools\llama, and their models into models\whisper and models\llm.
+# llama.cpp (notes) into tools\llama, and their models into models\whisper and models\llm; builds the system
+# sound helper into tools\audio-loopback.
 # All four folders are ignored by git (about 1.1 + 1.2 GB of programs, 1.1 + 7 GB of models).
 # Usage (from the project root):  powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1
 param(
@@ -57,4 +58,7 @@ if ($Force -or -not (Test-Path "tools\llama\llama-server.exe")) {
 # Gemma 4 12B, quantisation-aware 4-bit (Apache 2.0): ~7 GB, writes Russian and English notes well on a 12 GB GPU
 Get-Model "models\llm" "gemma-4-12b-it-qat-q4_0.gguf" "https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/main/gemma-4-12b-it-qat-q4_0.gguf"
 
-Write-Host "Done: tools\whisper, tools\llama, models\whisper, models\llm"
+# System sound capture (the other participants of a call): built locally, nothing to download
+& (Join-Path $PSScriptRoot "build-loopback.ps1")
+
+Write-Host "Done: tools\whisper, tools\llama, tools\audio-loopback, models\whisper, models\llm"

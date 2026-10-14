@@ -46,13 +46,19 @@ payments, installer signing, macOS/Linux desktop, AMD/DirectML, live transcript 
 - **Screen:** FFmpeg `ddagrab` (fallback: `gdigrab`), 1 frame per second, with the mouse pointer, encoded by
   NVENC. Only for people to watch.
 - **Microphone:** FFmpeg `dshow` → transcript speaker "Me".
-- **System audio (other participants): required.** WASAPI loopback; FFmpeg cannot do this, so a small native
-  helper (`audio-loopback.exe`, C++) writes PCM. Transcript speaker "Other participants".
+- **System audio (other participants): required.** WASAPI loopback of the default output device; FFmpeg cannot
+  do this, so a small helper (`audio-loopback.exe`, C# 5 compiled with the compiler built into Windows, no
+  dependencies; source in `native/audio-loopback`) writes float PCM to a pipe into ffmpeg. Windows sends no
+  loopback data while nothing plays, so the helper writes silence by the clock and the track stays in step with
+  the microphone. Transcript speaker "Other participants". If the helper is missing or the device cannot be
+  captured, the meeting is recorded without it and shows a warning.
 - Audio tracks are captured separately (16 kHz mono) on a shared timeline, so the transcript can tell "Me" from
   "Other participants". For the user a meeting is **one recording**: after "Stop" the screen and both sounds are
   combined into `recording.mp4`.
 - Without headphones the microphone also hears the other participants: the same phrase then appears on both
-  tracks at almost the same time. Such duplicates are removed from the transcript (kept on the system track).
+  tracks at almost the same time. Such duplicates are removed from the transcript (kept on the system track):
+  a microphone segment is dropped when ≥ 60% of its words were said on the system track within ±2 s
+  (`EchoFilter`). Verified with a speaker and no headphones on 2026-10-14.
 - Recording cannot start without an explicit user action. Before the first recording, a warning
   is shown that participants must consent to being recorded.
 
@@ -67,6 +73,8 @@ payments, installer signing, macOS/Linux desktop, AMD/DirectML, live transcript 
   "Speech recognition needs an NVIDIA graphics card".
 - Languages: Russian and English (configurable list, Russian is the fallback). Meetings often switch
   between them, so the language is detected for every piece of speech (≤ 30 s, cut at pauses).
+- Both tracks are recognised with one loaded model, then merged in time order.
+- Sound labels that Whisper writes instead of text ("*music playing*", "[Music]", "(applause)") are dropped.
 - Output: segments `{start, end, source, language, text}`; `transcript.json` and `transcript.md`.
 - Measured: one hour of speech in ~1 min on an RTX 5070.
 
@@ -83,6 +91,10 @@ payments, installer signing, macOS/Linux desktop, AMD/DirectML, live transcript 
   split further.
 - Without the model files the step is skipped with a warning; the transcript is kept.
 - Object detection (YOLO) is unloaded while a meeting is processed, so the speech and notes models have the GPU.
+- **Video memory:** the models run one after another, never together: Whisper (~1 GB) is stopped before the
+  notes model (~7.7 GB) starts. Other programs (the call itself, a browser, games) may hold part of the 12 GB, so
+  the free memory is checked before the notes model starts; if it is short, the notes are skipped with a message
+  saying how much is free and needed and to close GPU programs and press "Process again".
 
 ### 5.5 Export
 - **Markdown (always):** `Documents\VisionTrack\Meetings\YYYY-MM-DD_HH-MM_<title>\`
@@ -154,8 +166,8 @@ Package `org.example.visiontrack.meeting`:
 | 1 | Record screen and microphone to files | done |
 | 2 | ~~Slide detector~~ (removed in v2.0), one `recording.mp4` | done |
 | 3 | Whisper on GPU, Russian + English | done; without CUDA a clear "NVIDIA GPU required" error |
-| 4 | Notes with a local model + Markdown | `notes.json` follows the schema, `notes.md` is readable; without the model only the transcript is saved |
-| 5 | System audio (loopback) | the other participant's voice from Zoom is in the transcript as "Other participants"; echo duplicates removed |
+| 4 | Notes with a local model + Markdown | done; `notes.json` follows the schema, `notes.md` is readable; without the model only the transcript is saved |
+| 5 | System audio (loopback) | done; the other participant's voice is in the transcript as "Other participants"; echo duplicates removed |
 | 6 | Upload a recording | an mp3 / mp4 from Zoom or OBS gets a transcript and notes like a recorded meeting |
 | 7 | Notion export | page created with all properties and checkboxes; retrying the export works |
 | 8 | "Settings" tab | all settings persist between runs, secrets do not end up in logs |

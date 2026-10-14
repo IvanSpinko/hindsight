@@ -34,11 +34,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 /**
- * Records one meeting at a time: the screen and the microphone, each in its own ffmpeg process writing
- * segments, so a crash loses at most the unfinished end of a segment. On stop the segments become one
- * {@code recording.mp4} (screen and sound, for watching) plus {@code audio/mic.wav} for speech recognition,
- * and the meeting is handed to {@link MeetingJobService}. Nothing is analysed while recording, to keep the
- * meeting itself smooth.
+ * Records one meeting at a time: the screen, the microphone and the system sound (the other participants),
+ * each in its own ffmpeg process writing segments, so a crash loses at most the unfinished end of a segment.
+ * On stop the segments become one {@code recording.mp4} (screen and both sounds, for watching) plus
+ * {@code audio/mic.wav} and {@code audio/system.wav} for speech recognition, and the meeting is handed to
+ * {@link MeetingJobService}. Nothing is analysed while recording, to keep the meeting itself smooth.
  */
 @Service
 public class MeetingRecorder {
@@ -47,13 +47,21 @@ public class MeetingRecorder {
 
     public static final String SCREEN = "screen";
     static final String MIC = "mic";
+    static final String SYSTEM = "system";
     static final String RECORDING_FILE = "recording.mp4";
 
     private static final Logger log = LoggerFactory.getLogger(MeetingRecorder.class);
     private static final Duration DEVICE_OPEN_TIMEOUT = Duration.ofMillis(2500);
     private static final Duration STOP_TIMEOUT = Duration.ofSeconds(15);
 
-    private record Active(String id, Path folder, CaptureProcess screen, CaptureProcess mic, Set<String> reported) {}
+    /** {@code system} is null when the system sound could not be recorded (the meeting goes on without it). */
+    private record Active(String id, Path folder, CaptureProcess screen, CaptureProcess mic, CaptureProcess system,
+                          Set<String> reported) {
+
+        List<CaptureProcess> captures() {
+            return system == null ? List.of(screen, mic) : List.of(screen, mic, system);
+        }
+    }
 
     private final MeetingStore store;
     private final VisionTrackProperties.Meetings settings;
@@ -94,7 +102,7 @@ public class MeetingRecorder {
     public CaptureDevices devices(boolean refresh) {
         CaptureDevices current = devices;
         if (current == null || (refresh && active == null)) {
-            current = CaptureDevices.detect(ffmpeg());
+            current = CaptureDevices.detect(ffmpeg(), settings.systemAudioHelper());
             devices = current;
         }
         return current;
@@ -130,6 +138,7 @@ public class MeetingRecorder {
         long startNanos = System.nanoTime();
         CaptureProcess screen = null;
         CaptureProcess mic = null;
+        CaptureProcess system = null;
         try {
             // ddagrab is only offered when probing found the monitor (width > 0)
             ScreenCapture.Method method = monitor.width() > 0 ? ScreenCapture.Method.DDAGRAB : ScreenCapture.Method.GDIGRAB;
@@ -156,19 +165,34 @@ public class MeetingRecorder {
                 throw new CaptureFailure("Screen capture could not start (" + error + ")");
             }
 
-            List<Meeting.Track> tracks = List.of(
+            String systemProblem = null;
+            try {
+                system = startSystemAudio(folder);
+            } catch (IOException | CaptureFailure e) {
+                systemProblem = "The other participants are not recorded: " + e.getMessage();
+                log.warn("Meeting {}: {}", id, systemProblem);
+            }
+
+            List<Meeting.Track> tracks = new ArrayList<>(List.of(
                     new Meeting.Track(SCREEN, "video/screen.mp4", offsetMillis(startNanos, screen), 0),
-                    new Meeting.Track(MIC, "audio/mic.wav", offsetMillis(startNanos, mic), 0));
+                    new Meeting.Track(MIC, "audio/mic.wav", offsetMillis(startNanos, mic), 0)));
+            List<Long> pids = new ArrayList<>(List.of(screen.pid(), mic.pid()));
+            if (system != null) {
+                tracks.add(new Meeting.Track(SYSTEM, "audio/system.wav", offsetMillis(startNanos, system), 0));
+                pids.addAll(system.pids());
+            }
             Meeting meeting = Meeting.recording(id, title, method.name().toLowerCase() + " · " + monitor.name(), microphone,
-                    tracks, List.of(screen.pid(), mic.pid()));
+                    tracks, pids);
+            if (systemProblem != null) meeting = meeting.withWarning(systemProblem);
             store.save(meeting);
-            active = new Active(id, folder, screen, mic, new HashSet<>());
+            active = new Active(id, folder, screen, mic, system, new HashSet<>());
             log.info("Recording meeting {} into {} ({}, {})", id, folder, meeting.screenCapture(), microphone);
             events.publishEvent(new RecordingStateChanged(true, meeting.startedAt()));
             return meeting;
         } catch (CaptureFailure | InterruptedException | IOException e) {
             if (screen != null) screen.stop(STOP_TIMEOUT);
             if (mic != null) mic.stop(STOP_TIMEOUT);
+            if (system != null) system.stop(STOP_TIMEOUT);
             deleteQuietly(folder);
             if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             log.warn("Could not start recording: {}", e.getMessage());
@@ -198,6 +222,26 @@ public class MeetingRecorder {
         return CaptureProcess.start(MIC, ffmpeg().executable(), args, folder.resolve("logs/mic.log"));
     }
 
+    /**
+     * The other participants: whatever the default output device plays, captured by the audio-loopback helper.
+     * Without the helper, or if it cannot open the device, the meeting is recorded without them.
+     */
+    private CaptureProcess startSystemAudio(Path folder) throws IOException, CaptureFailure, InterruptedException {
+        Path helper = settings.systemAudioHelper();
+        if (!SystemAudioCapture.isInstalled(helper)) {
+            throw new CaptureFailure("the system sound helper is not installed (" + helper + ", see packaging\\build-loopback.ps1)");
+        }
+        SystemAudioCapture.Device device = SystemAudioCapture.defaultDevice(helper);
+        List<String> args = SystemAudioCapture.args(device, folder.resolve("audio"), SYSTEM, settings.segmentSeconds(), maxSeconds());
+        CaptureProcess system = CaptureProcess.startPiped(SYSTEM, SystemAudioCapture.source(helper, maxSeconds()),
+                ffmpeg().executable(), args, folder.resolve("logs/system.log"));
+        if (!system.survives(Duration.ofMillis(800))) {
+            throw new CaptureFailure("the output device \"" + device.name() + "\" could not be captured (" + system.errorTail() + ")");
+        }
+        log.info("Recording the system sound from {} ({} Hz, {} channels)", device.name(), device.sampleRate(), device.channels());
+        return system;
+    }
+
     private int maxSeconds() {
         return settings.maxRecordingMinutes() * 60;
     }
@@ -216,8 +260,7 @@ public class MeetingRecorder {
             }
             return meeting;
         }
-        current.screen().stop(STOP_TIMEOUT);
-        current.mic().stop(STOP_TIMEOUT);
+        current.captures().forEach(capture -> capture.stop(STOP_TIMEOUT));
         active = null;
         Meeting meeting = store.find(id).orElseThrow();
         try {
@@ -269,17 +312,19 @@ public class MeetingRecorder {
     }
 
     /**
-     * Replaces the joined screen video with {@code recording.mp4} that also carries the microphone, so the
-     * user gets one file to watch. {@code audio/mic.wav} stays for speech recognition.
+     * Replaces the joined screen video with {@code recording.mp4} that also carries the microphone and the system
+     * sound, mixed, so the user gets one file to watch. The audio tracks stay for speech recognition.
      */
     private List<Meeting.Track> combineIntoRecording(String id, Path folder, List<Meeting.Track> tracks, List<String> problems) {
         Meeting.Track screen = tracks.stream().filter(t -> t.kind().equals(SCREEN)).findFirst().orElse(null);
         if (screen == null) return tracks;
-        Meeting.Track mic = tracks.stream().filter(t -> t.kind().equals(MIC)).findFirst().orElse(null);
+        List<Ffmpeg.AudioInput> audio = tracks.stream()
+                .filter(t -> t.kind().equals(MIC) || t.kind().equals(SYSTEM))
+                .map(t -> new Ffmpeg.AudioInput(folder.resolve(t.file()), (t.startOffsetMillis() - screen.startOffsetMillis()) / 1000.0))
+                .toList();
         Path video = folder.resolve(screen.file());
         try {
-            double offset = mic == null ? 0 : (mic.startOffsetMillis() - screen.startOffsetMillis()) / 1000.0;
-            ffmpeg().mux(video, mic == null ? null : folder.resolve(mic.file()), offset, folder.resolve(RECORDING_FILE));
+            ffmpeg().mux(video, audio, folder.resolve(RECORDING_FILE));
             deleteQuietly(video.getParent());
             return tracks.stream()
                     .map(t -> t == screen ? new Meeting.Track(SCREEN, RECORDING_FILE, t.startOffsetMillis(), t.durationSeconds()) : t)
@@ -291,11 +336,11 @@ public class MeetingRecorder {
         }
     }
 
-    /** Kills ffmpeg captures left running by a crashed app, so their parts are complete before joining. */
+    /** Kills captures (ffmpeg, audio-loopback) left running by a crashed app, so their parts are complete before joining. */
     private static void stopOrphanedCaptures(Meeting meeting) {
         for (long pid : meeting.capturePids()) {
             ProcessHandle.of(pid)
-                    .filter(p -> p.info().command().map(c -> Path.of(c).getFileName().toString().toLowerCase().startsWith("ffmpeg")).orElse(false))
+                    .filter(p -> p.info().command().map(c -> isCaptureProgram(Path.of(c).getFileName().toString())).orElse(false))
                     .filter(p -> p.info().startInstant().map(t -> !t.isBefore(meeting.startedAt().minusSeconds(60))).orElse(true))
                     .ifPresent(p -> {
                         log.info("Meeting {}: stopping orphaned capture process {}", meeting.id(), pid);
@@ -303,6 +348,11 @@ public class MeetingRecorder {
                         p.onExit().completeOnTimeout(p, 5, TimeUnit.SECONDS).join();
                     });
         }
+    }
+
+    private static boolean isCaptureProgram(String fileName) {
+        String name = fileName.toLowerCase(Locale.ROOT);
+        return name.startsWith("ffmpeg") || name.startsWith("audio-loopback");
     }
 
     private static List<Path> parts(Path directory, String prefix) throws IOException {
@@ -319,9 +369,13 @@ public class MeetingRecorder {
     private void checkCaptures() {
         Active current = active;
         if (current == null) return;
-        for (CaptureProcess process : List.of(current.screen(), current.mic())) {
+        for (CaptureProcess process : current.captures()) {
             if (process.diedUnexpectedly() && current.reported().add(process.name())) {
-                String warning = (process.name().equals(SCREEN) ? "Screen" : "Microphone")
+                String warning = switch (process.name()) {
+                    case SCREEN -> "Screen";
+                    case MIC -> "Microphone";
+                    default -> "System sound";
+                }
                         + " capture stopped during the recording: " + process.errorTail();
                 log.warn("Meeting {}: {}", current.id(), warning);
                 synchronized (this) {

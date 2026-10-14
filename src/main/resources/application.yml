@@ -60,6 +60,8 @@ visiontrack:
     # Recording is written in parts of this length, so a crash loses at most the unfinished part
     segment-seconds: 300
     max-recording-minutes: 360
+    # Captures what the computer plays: the other participants of a call (packaging/build-loopback.ps1)
+    system-audio-helper: tools/audio-loopback/audio-loopback.exe
     # Speech recognition (whisper.cpp on CUDA, see packaging/get-models.ps1). Each piece of speech gets its
     # own language, limited to these; the first one is the fallback.
     whisper:

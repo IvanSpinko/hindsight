@@ -4,11 +4,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Monitors and microphones available for recording. */
-public record CaptureDevices(List<Monitor> monitors, List<String> microphones) {
+/**
+ * Monitors and microphones available for recording, and the output device whose sound (the other participants)
+ * is recorded; {@code systemAudio} is null when it cannot be captured.
+ */
+public record CaptureDevices(List<Monitor> monitors, List<String> microphones, String systemAudio) {
 
     private static final Logger log = LoggerFactory.getLogger(CaptureDevices.class);
     private static final int MAX_MONITORS = 8;
@@ -16,7 +20,7 @@ public record CaptureDevices(List<Monitor> monitors, List<String> microphones) {
     public record Monitor(int index, String name, int width, int height) {}
 
     /** Monitors are found by trying DXGI outputs 0, 1, 2... the same indices ddagrab records from. */
-    static CaptureDevices detect(Ffmpeg ffmpeg) {
+    static CaptureDevices detect(Ffmpeg ffmpeg, Path systemAudioHelper) {
         List<Monitor> monitors = new ArrayList<>();
         try {
             for (int i = 0; i < MAX_MONITORS; i++) {
@@ -38,6 +42,15 @@ public record CaptureDevices(List<Monitor> monitors, List<String> microphones) {
         } catch (IOException e) {
             log.warn("Cannot list microphones: {}", e.getMessage());
         }
-        return new CaptureDevices(List.copyOf(monitors), microphones);
+
+        String systemAudio = null;
+        if (SystemAudioCapture.isInstalled(systemAudioHelper)) {
+            try {
+                systemAudio = SystemAudioCapture.defaultDevice(systemAudioHelper).name();
+            } catch (IOException e) {
+                log.warn("Cannot find the output device: {}", e.getMessage());
+            }
+        }
+        return new CaptureDevices(List.copyOf(monitors), microphones, systemAudio);
     }
 }

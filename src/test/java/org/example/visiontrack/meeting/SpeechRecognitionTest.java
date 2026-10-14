@@ -96,6 +96,16 @@ class SpeechRecognitionTest {
     }
 
     @Test
+    void soundLabelsAreNotSpeech() {
+        assertThat(WhisperCppTranscriber.isSoundLabel(" *music playing*")).isTrue();
+        assertThat(WhisperCppTranscriber.isSoundLabel("[Music]")).isTrue();
+        assertThat(WhisperCppTranscriber.isSoundLabel("(applause)")).isTrue();
+        assertThat(WhisperCppTranscriber.isSoundLabel(" ♪♪")).isTrue();
+        assertThat(WhisperCppTranscriber.isSoundLabel(" (laughs) Yes, Friday stays.")).isFalse();
+        assertThat(WhisperCppTranscriber.isSoundLabel(" Any questions?")).isFalse();
+    }
+
+    @Test
     void wavPiecesAreStandaloneFiles() throws Exception {
         byte[] wav = wav(16_000, 32_000);                      // 2 s
         PcmWav audio = PcmWav.parse(wav);

@@ -38,16 +38,18 @@ Open http://localhost:8080, drop in a video and wait for the results. Settings l
 | POST   | `/api/meetings/{id}/open-folder`  | opens the meeting folder in Explorer                      |
 
 Recordings go to `Documents\VisionTrack\Meetings\<date>_<time>_<title>\`. The screen (ffmpeg `ddagrab`,
-falling back to `gdigrab`, 1 fps, encoded by NVENC) and the microphone (`dshow`, 16 kHz mono) are captured by
-the ffmpeg bundled with JavaCV in separate processes, written in 5-minute parts, so a crash keeps what was
+falling back to `gdigrab`, 1 fps, encoded by NVENC), the microphone (`dshow`, 16 kHz mono) and the system sound,
+i.e. the other participants (WASAPI loopback via `tools\audio-loopback\audio-loopback.exe` piped into ffmpeg),
+are captured by the ffmpeg bundled with JavaCV in separate processes, written in 5-minute parts, so a crash keeps what was
 recorded; unfinished meetings are joined on the next start. The screen is only for people to rewatch: the notes
 come from what was said. After "Stop" the meeting is processed in the background (`RECORDED → PROCESSING → READY`):
-whisper.cpp transcribes the speech (`transcript.md`, `transcript.json`; Silero VAD finds the speech, each piece of
-up to 30 s gets its own language, Russian or English, large-v3-turbo on CUDA), then a local model, Gemma 4 12B on
+whisper.cpp transcribes both sounds as "Me" and "Other participants" (`transcript.md`, `transcript.json`; Silero
+VAD finds the speech, each piece of up to 30 s gets its own language, Russian or English, large-v3-turbo on CUDA;
+echoes of the speakers in the microphone are removed), then a local model, Gemma 4 12B on
 llama.cpp, writes the notes (`notes.md`, `notes.json`: summary, decisions, action items with owners and due dates,
 timeline, open questions). Everything runs offline on the GPU. Install the programs and models once with
 `powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1` (downloads ~10 GB into `tools\` and
-`models\`); without them meetings are still recorded, only the transcript or the notes are skipped.
+`models\` and builds the system sound helper with the C# compiler built into Windows); without them meetings are still recorded, only the transcript or the notes are skipped.
 
 ```bash
 curl -F "file=@street.mp4" http://localhost:8080/api/analyses
