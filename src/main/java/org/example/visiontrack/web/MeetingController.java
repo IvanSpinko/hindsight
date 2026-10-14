@@ -25,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -105,6 +106,15 @@ public class MeetingController {
         Path image = store.folder(id).map(f -> f.resolve("slides").resolve(file)).filter(Files::isRegularFile)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Slide not found"));
         return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(new FileSystemResource(image));
+    }
+
+    /** The readable transcript (Markdown, shown as plain text in the browser). */
+    @GetMapping("/{id}/transcript")
+    public ResponseEntity<Resource> transcript(@PathVariable("id") String id) {
+        Path file = store.folder(id).map(f -> f.resolve("transcript.md")).filter(Files::isRegularFile)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transcript not found"));
+        return ResponseEntity.ok().contentType(new MediaType("text", "plain", StandardCharsets.UTF_8))
+                .body(new FileSystemResource(file));
     }
 
     /** Opens the meeting folder in Explorer. */

@@ -64,3 +64,13 @@ visiontrack:
     slide-stable-seconds: 2
     # ...and this share of it must differ from the previous slide (ignores cursors, clocks, small popups)
     slide-min-changed-share: 0.03
+    # Speech recognition (whisper.cpp, see packaging/get-whisper.ps1). Each piece of speech gets its own
+    # language, limited to these; the first one is the fallback.
+    whisper:
+      directory: tools/whisper
+      gpu-model: models/whisper/ggml-large-v3-turbo-q8_0.bin
+      cpu-model: models/whisper/ggml-small-q8_0.bin
+      vad-model: models/whisper/ggml-silero-v5.1.2.bin
+      languages: [ru, en]
+      # auto = CUDA when available, otherwise CPU; cpu = always CPU
+      device: auto

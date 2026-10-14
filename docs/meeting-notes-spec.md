@@ -54,13 +54,20 @@ AMD/DirectML, live transcript during the meeting (that is the next version).
 
 ### 5.3 Speech recognition
 - Whisper model on the GPU. Default model: `large-v3-turbo` on CUDA, `small` on CPU (chosen automatically).
-- Language: auto-detect, primarily Russian; Ukrainian and English supported.
+- Languages: Russian and English (configurable list, Russian is the fallback). Meetings often switch
+  between them, so the language is detected for every piece of speech (≤ 30 s, cut at pauses), not once
+  per meeting. Text on slides (often English) is read by Claude from the slide images in stage 4.
 - Output: segments `{start, end, source: mic|system, text}`. Source `mic` = "Me", `system` = "Other participant(s)".
 - Models are loaded only for the duration of processing and unloaded afterwards (do not keep YOLO and Whisper in VRAM at the same time).
 - **Decide in stage 3** (build a prototype, compare, choose):
   - option A: `whisper.cpp` (built with CUDA) as a child process. Simpler and more reliable, can reuse `app/cuda`;
   - option B: ONNX export of Whisper in the existing ONNX Runtime. Single stack, but the decoder and tokenizer have to be written in Java.
   - Recommendation: start with option A.
+  - **Decision (stage 3): option A.** whisper.cpp b5454 (CUDA 12.4 build) runs on an RTX 5070 (sm_120,
+    kernels JIT-compiled by the driver on first use). One hour of speech is transcribed in ~1 min on the GPU
+    (large-v3-turbo q8_0, ~0.9 GB VRAM), far below the 10-minute target; the CPU fallback (small q8_0) works.
+    Option B was not prototyped: it would need a Java decoder, tokenizer and language detection for the same
+    result, and A already meets every requirement.
 
 ### 5.4 Notes (Claude API)
 - Input: transcript with timestamps + slide screenshots + lists of existing projects and tags from Notion (if connected).

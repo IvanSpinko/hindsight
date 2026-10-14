@@ -70,6 +70,23 @@ public record VisionTrackProperties(
             @Min(1) int maxRecordingMinutes,
             Path ffmpegDir,
             @DecimalMin("0.5") double slideStableSeconds,
-            @DecimalMin("0.001") @DecimalMax("1.0") double slideMinChangedShare
+            @DecimalMin("0.001") @DecimalMax("1.0") double slideMinChangedShare,
+            @Valid @NotNull Whisper whisper
     ) {}
+
+    /**
+     * Speech recognition with whisper.cpp: {@code directory} holds whisper-server.exe and its DLLs.
+     * The GPU model is used on CUDA, the CPU model when CUDA is unavailable ({@code device: cpu} forces it).
+     * {@code languages} are the ISO codes speech may be in; the first one is the fallback.
+     */
+    public record Whisper(
+            @NotNull Path directory,
+            @NotNull Path gpuModel,
+            @NotNull Path cpuModel,
+            @NotNull Path vadModel,
+            @NotEmpty List<String> languages,
+            @NotNull Device device
+    ) {
+        public enum Device { AUTO, CPU }
+    }
 }

@@ -21,8 +21,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Processes recorded meetings in the background, one at a time: finds the slides now; speech recognition,
- * notes and the Notion export are added as further steps. Progress is saved in {@code meeting.json}, and
+ * Processes recorded meetings in the background, one at a time: finds the slides, then recognises the
+ * speech; notes and the Notion export are added as further steps. Progress is saved in {@code meeting.json}, and
  * meetings interrupted by a restart are processed again on the next start.
  */
 @Service
@@ -30,11 +30,15 @@ public class MeetingJobService {
 
     static final String STEP_WAITING = "Waiting";
     static final String STEP_SLIDES = "Finding slides";
+    static final String STEP_SPEECH = "Recognising speech";
 
     private static final Logger log = LoggerFactory.getLogger(MeetingJobService.class);
 
     private final MeetingStore store;
     private final SlideExtractor slides;
+    private final VisionTrackProperties.Whisper whisper;
+    private final ObjectMapper json;
+    private final TranscriptWriter transcripts;
     private final Set<String> queued = ConcurrentHashMap.newKeySet();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "meeting-processing");
@@ -47,6 +51,9 @@ public class MeetingJobService {
         VisionTrackProperties.Meetings settings = properties.meetings();
         this.slides = new SlideExtractor(
                 new SlideChangeDetector.Settings(settings.slideStableSeconds(), settings.slideMinChangedShare()), objectMapper);
+        this.whisper = settings.whisper();
+        this.json = objectMapper;
+        this.transcripts = new TranscriptWriter(objectMapper);
     }
 
     /** Queues a recorded meeting; does nothing if it is already queued or running. */
@@ -76,14 +83,33 @@ public class MeetingJobService {
             if (screen != null && Files.isRegularFile(folder.resolve(screen.file()))) {
                 found = slides.extract(folder.resolve(screen.file()), folder, progressSaver(id, STEP_SLIDES));
             }
+            Meeting.Transcription transcription = transcribe(meeting, folder);
             int count = found.size();
-            store.find(id).ifPresent(m -> store.save(m.ready(count)));
-            log.info("Meeting {} processed: {} slides", id, count);
+            store.find(id).ifPresent(m -> store.save(m.ready(count, transcription)));
+            log.info("Meeting {} processed: {} slides, {} speech segments", id, count,
+                    transcription == null ? 0 : transcription.segments());
         } catch (Exception e) {
             log.error("Meeting {}: processing failed", id, e);
             String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
             store.find(id).ifPresent(m -> store.save(m.failed("Processing failed: " + message)));
         }
+    }
+
+    /** Recognises the microphone track; returns null (with a warning) when speech recognition is not installed. */
+    private Meeting.Transcription transcribe(Meeting meeting, Path folder) throws IOException {
+        Meeting.Track mic = meeting.track(MeetingRecorder.MIC);
+        if (mic == null || !Files.isRegularFile(folder.resolve(mic.file()))) return null;
+        if (!WhisperCppTranscriber.isInstalled(whisper)) {
+            String warning = "Speech recognition is not installed (" + whisper.directory() + "), the transcript was skipped";
+            log.warn("Meeting {}: {}", meeting.id(), warning);
+            store.find(meeting.id()).ifPresent(m -> store.save(m.withWarning(warning)));
+            return null;
+        }
+        Transcriber transcriber = new WhisperCppTranscriber(whisper, json, folder.resolve("logs"));
+        Transcriber.Result result = transcriber.transcribe(folder.resolve(mic.file()), mic.startOffsetMillis() / 1000.0,
+                MeetingRecorder.MIC, progressSaver(meeting.id(), STEP_SPEECH));
+        transcripts.write(folder, meeting.title(), result);
+        return new Meeting.Transcription(result.model(), result.backend(), result.languages(), result.segments().size());
     }
 
     /** Saves progress to meeting.json in 5% steps, so the UI can show it without rewriting the file every frame. */

@@ -915,7 +915,18 @@
       div.append(bar, el('div', 'path', `${meeting.processing.step}… ${meeting.processing.percent}%`));
     }
     if (meeting.status === 'READY') {
-      div.append(el('div', 'path', meeting.slideCount === 1 ? '1 slide' : `${meeting.slideCount} slides`));
+      const t = meeting.transcription;
+      const summary = [meeting.slideCount === 1 ? '1 slide' : `${meeting.slideCount} slides`];
+      if (t) summary.push(`speech: ${t.languages.length ? t.languages.join(', ').toUpperCase() : 'none'} · ${t.model} on ${t.backend}`);
+      const info = el('div', 'row');
+      info.append(el('span', 'path', summary.join(' · ')));
+      if (t && t.segments > 0) {
+        const link = el('a', 'link', 'Transcript');
+        link.href = `/api/meetings/${meeting.id}/transcript`;
+        link.target = '_blank';
+        info.append(link);
+      }
+      div.append(info);
       const slides = slideCache.get(meeting.id) || [];
       if (slides.length) {
         const strip = el('div', 'slides');

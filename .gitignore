@@ -54,3 +54,7 @@ settings.json
 .env
 *.env
 *.key
+
+# Whisper (whisper.cpp binaries and models, fetched by packaging/get-whisper.ps1)
+tools/
+models/whisper/

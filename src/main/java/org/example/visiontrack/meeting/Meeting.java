@@ -10,7 +10,7 @@ import java.util.List;
  * after {@link #startedAt}. {@code capturePids} are the ffmpeg processes of a running recording, kept so
  * they can be stopped if the app crashes (on Windows child processes outlive their parent).
  *
- * <p>Lifecycle: RECORDING → RECORDED (files joined) → PROCESSING (slides, later speech and notes) → READY.
+ * <p>Lifecycle: RECORDING → RECORDED (files joined) → PROCESSING (slides, speech, later notes) → READY.
  * FAILED keeps whatever was recorded; processing can be started again.
  */
 public record Meeting(
@@ -26,13 +26,17 @@ public record Meeting(
         List<String> warnings,
         String error,
         Processing processing,
-        int slideCount
+        int slideCount,
+        Transcription transcription
 ) {
 
     public enum Status { RECORDING, RECORDED, PROCESSING, READY, FAILED }
 
     /** The processing step that is running and how far it got (0-100). */
     public record Processing(String step, int percent) {}
+
+    /** How the speech was recognised, e.g. large-v3-turbo-q8_0 on CUDA, languages [ru, en]. */
+    public record Transcription(String model, String backend, List<String> languages, int segments) {}
 
     public record Track(String kind, String file, long startOffsetMillis, double durationSeconds) {}
 
@@ -45,39 +49,43 @@ public record Meeting(
     static Meeting recording(String id, String title, String screenCapture, String microphone, List<Track> tracks,
                              List<Long> capturePids) {
         return new Meeting(id, title, Status.RECORDING, Instant.now(), null, screenCapture, microphone, tracks, capturePids,
-                null, null, null, 0);
+                null, null, null, 0, null);
     }
 
     Meeting withWarning(String warning) {
         List<String> all = new ArrayList<>(warnings);
         if (!all.contains(warning)) all.add(warning);
         return new Meeting(id, title, status, startedAt, stoppedAt, screenCapture, microphone, tracks, capturePids, all,
-                error, processing, slideCount);
+                error, processing, slideCount, transcription);
     }
 
     Meeting recorded(Instant stoppedAt, List<Track> finalTracks) {
         return new Meeting(id, title, Status.RECORDED, startedAt, stoppedAt, screenCapture, microphone, finalTracks, null,
-                warnings, null, null, slideCount);
+                warnings, null, null, slideCount, transcription);
     }
 
     Meeting processing(String step, int percent) {
         return new Meeting(id, title, Status.PROCESSING, startedAt, stoppedAt, screenCapture, microphone, tracks, null,
-                warnings, null, new Processing(step, percent), slideCount);
+                warnings, null, new Processing(step, percent), slideCount, transcription);
     }
 
-    Meeting ready(int slides) {
+    Meeting ready(int slides, Transcription transcription) {
         return new Meeting(id, title, Status.READY, startedAt, stoppedAt, screenCapture, microphone, tracks, null,
-                warnings, null, null, slides);
+                warnings, null, null, slides, transcription);
     }
 
     Meeting failed(String error) {
         Instant end = stoppedAt == null ? Instant.now() : stoppedAt;
         return new Meeting(id, title, Status.FAILED, startedAt, end, screenCapture, microphone, tracks, null,
-                warnings, error, null, slideCount);
+                warnings, error, null, slideCount, transcription);
     }
 
     /** The recording file to process: the combined recording, or the screen video if combining failed. */
     Track screenTrack() {
-        return tracks.stream().filter(t -> t.kind().equals(MeetingRecorder.SCREEN)).findFirst().orElse(null);
+        return track(MeetingRecorder.SCREEN);
+    }
+
+    Track track(String kind) {
+        return tracks.stream().filter(t -> t.kind().equals(kind)).findFirst().orElse(null);
     }
 }

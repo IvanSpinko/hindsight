@@ -41,6 +41,11 @@ bundled with JavaCV in separate processes, written in 5-minute parts, so a crash
 unfinished meetings are joined on the next start. After "Stop" the meeting is processed in the background
 (`RECORDED → PROCESSING → READY`): `SlideChangeDetector` keeps every slide that stays on screen for 2 s,
 ignoring participant webcams, transitions and bullet-by-bullet builds, and saves `slides/slide-NN.png`.
+Then the microphone track is transcribed with whisper.cpp (`transcript.md`, `transcript.json`): Silero VAD
+finds the speech, each piece of up to 30 s gets its own language (Russian or English), large-v3-turbo runs
+on CUDA and small on the CPU when CUDA is unavailable. Install it once with
+`powershell -ExecutionPolicy Bypass -File packaging\get-whisper.ps1` (downloads ~2 GB into `tools\whisper`
+and `models\whisper`); without it meetings are still recorded and get slides, only the transcript is skipped.
 
 ```bash
 curl -F "file=@street.mp4" http://localhost:8080/api/analyses
