@@ -52,3 +52,11 @@ visiontrack:
   jobs:
     concurrency: 1
     queue-capacity: 20
+  meetings:
+    # One folder per meeting: <date>_<time>_<title> with video/, audio/ and meeting.json
+    directory: ${user.home}/Documents/VisionTrack/Meetings
+    # Screen frames per second (slides change rarely; keeps the meeting itself smooth)
+    screen-fps: 1
+    # Recording is written in parts of this length, so a crash loses at most the unfinished part
+    segment-seconds: 300
+    max-recording-minutes: 360

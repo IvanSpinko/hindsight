@@ -95,6 +95,25 @@
   select { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); max-width: 260px; }
   .stage.live { margin-top: 14px; }
   .stage.live video { transform: scaleX(-1); }
+
+  /* meetings */
+  .form { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 14px; align-items: center; }
+  .form label { color: var(--muted); font-size: 14px; }
+  .form select, .form input { max-width: 100%; width: 100%; }
+  input[type=text] { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+  #meeting-form + .row { margin-top: 16px; }
+  .rec { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: #e51c23; font-variant-numeric: tabular-nums; font-size: 20px; }
+  .rec::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: #e51c23; animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+  .meeting { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .meeting:last-child { border-bottom: 0; padding-bottom: 0; }
+  .meeting .title { font-weight: 600; }
+  .meeting .path { font-size: 13px; color: var(--muted); word-break: break-all; }
+  .meeting .warn { font-size: 13px; color: var(--error); }
+  .badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
+  .badge.failed { background: var(--error-soft); color: var(--error); }
+  .badge.recording { background: #e51c23; color: #fff; }
+  @media (max-width: 520px) { .form { grid-template-columns: 1fr; gap: 4px; } }
 </style>
 </head>
 <body>
@@ -105,6 +124,7 @@
     <nav class="tabs">
       <button class="tab active" data-mode="file">Video file</button>
       <button class="tab" data-mode="live">Live camera</button>
+      <button class="tab" data-mode="meetings">Meetings</button>
     </nav>
   </header>
 
@@ -189,6 +209,37 @@
       <h2>In view now</h2>
       <div class="filters" id="cam-objects"></div>
       <p class="muted" id="cam-none">Nothing recognised yet.</p>
+    </div>
+  </section>
+
+  <section id="meetings-mode" hidden>
+    <div class="card">
+      <div id="rec-setup">
+        <div class="form" id="meeting-form">
+          <label for="m-title">Title</label>
+          <input type="text" id="m-title" placeholder="Meeting" maxlength="120">
+          <label for="m-monitor">Screen</label>
+          <select id="m-monitor"></select>
+          <label for="m-mic">Microphone</label>
+          <select id="m-mic"></select>
+        </div>
+        <div class="row">
+          <button id="m-start" disabled>Start recording</button>
+          <button id="m-refresh" class="secondary">Refresh devices</button>
+          <span class="muted" id="m-status">Looking for screens and microphones…</span>
+        </div>
+      </div>
+      <div id="rec-live" class="row spread" hidden>
+        <span class="rec" id="m-timer">00:00:00</span>
+        <button id="m-stop">Stop</button>
+      </div>
+      <p class="muted" id="m-hint">Records the screen and your microphone. Nothing is analysed during the meeting, so it stays smooth.</p>
+      <div id="m-error" class="error" hidden></div>
+    </div>
+    <div class="card">
+      <h2>Recorded meetings</h2>
+      <div id="m-list"></div>
+      <p class="muted" id="m-empty" hidden>No meetings recorded yet.</p>
     </div>
   </section>
 </main>
@@ -551,14 +602,20 @@
   let stream = null, running = false, last = null, frames = 0, fpsSince = 0, fps = 0;
 
   // Mode switch
+  const SUBTITLES = {
+    file: 'Find out which objects appear in a video and when.',
+    live: 'Point the camera at things to recognise them live.',
+    meetings: 'Record an online meeting: screen and microphone.'
+  };
   document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
-    const live = tab.dataset.mode === 'live';
+    const mode = tab.dataset.mode;
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
-    $('file-mode').hidden = live;
-    $('live-mode').hidden = !live;
-    $('subtitle').textContent = live ? 'Point the camera at things to recognise them live.'
-                                     : 'Find out which objects appear in a video and when.';
-    if (!live) stop();
+    $('file-mode').hidden = mode !== 'file';
+    $('live-mode').hidden = mode !== 'live';
+    $('meetings-mode').hidden = mode !== 'meetings';
+    $('subtitle').textContent = SUBTITLES[mode];
+    if (mode !== 'live') stop();
+    document.dispatchEvent(new CustomEvent('modechange', { detail: mode }));
   }));
 
   $('cam-start').addEventListener('click', () => start());
@@ -704,6 +761,170 @@
     requestAnimationFrame(draw);
   }
   draw();
+})();
+</script>
+
+<script>
+// ---------- meetings ----------
+(() => {
+  const $ = id => document.getElementById(id);
+  const CONSENT_KEY = 'visiontrack.recordingConsent';
+  let loaded = false, recording = null, timer = null;
+
+  document.addEventListener('modechange', e => { if (e.detail === 'meetings' && !loaded) { loaded = true; init(); } });
+  $('m-refresh').addEventListener('click', () => loadDevices(true));
+  $('m-start').addEventListener('click', start);
+  $('m-stop').addEventListener('click', stopRecording);
+
+  async function init() {
+    await loadMeetings();
+    if (!recording) await loadDevices(false);
+  }
+
+  async function loadDevices(refresh) {
+    $('m-start').disabled = true;
+    $('m-refresh').disabled = true;
+    $('m-status').textContent = 'Looking for screens and microphones…';
+    try {
+      const devices = await api(`/api/meetings/devices${refresh ? '?refresh=true' : ''}`);
+      $('m-monitor').replaceChildren(...devices.monitors.map(m =>
+        new Option(m.width ? `${m.name} · ${m.width}×${m.height}` : m.name, m.index)));
+      $('m-mic').replaceChildren(...devices.microphones.map(name => new Option(name, name)));
+      const noMic = devices.microphones.length === 0;
+      $('m-status').textContent = noMic ? 'No microphone found. Connect one and press Refresh devices.' : '';
+      $('m-start').disabled = noMic;
+    } catch (e) {
+      $('m-status').textContent = '';
+      showError(e.message);
+    } finally {
+      $('m-refresh').disabled = false;
+    }
+  }
+
+  async function start() {
+    hideError();
+    if (!consentGiven()) {
+      const ok = confirm('Before you record a meeting, make sure everyone in it agrees to being recorded.\n\n' +
+        'VisionTrack records your screen and microphone and keeps the files only on this computer.\n\n' +
+        'Press OK to confirm that the participants agree.');
+      if (!ok) return;
+      rememberConsent();
+    }
+    $('m-start').disabled = true;
+    $('m-status').textContent = 'Starting…';
+    try {
+      const body = { title: $('m-title').value.trim() || null, monitor: Number($('m-monitor').value), microphone: $('m-mic').value };
+      const res = await api('/api/meetings/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      $('m-status').textContent = '';
+      showRecording(res.meeting);
+      await loadMeetings();
+    } catch (e) {
+      $('m-status').textContent = '';
+      $('m-start').disabled = false;
+      showError(e.message);
+    }
+  }
+
+  async function stopRecording() {
+    if (!recording) return;
+    $('m-stop').disabled = true;
+    $('m-stop').textContent = 'Saving…';
+    try {
+      const res = await api(`/api/meetings/${recording.id}/stop`, { method: 'POST' });
+      showIdle();
+      if (res.meeting.status === 'FAILED') showError(res.meeting.error);
+    } catch (e) {
+      showError(e.message);
+    } finally {
+      $('m-stop').disabled = false;
+      $('m-stop').textContent = 'Stop';
+      await loadMeetings();
+      if (!recording) loadDevices(false);
+    }
+  }
+
+  function showRecording(meeting) {
+    recording = meeting;
+    $('rec-setup').hidden = true;
+    $('rec-live').hidden = false;
+    clearInterval(timer);
+    const tick = () => {
+      const text = clock((Date.now() - Date.parse(meeting.startedAt)) / 1000);
+      $('m-timer').textContent = text;
+      document.title = `● REC ${text} · VisionTrack`;
+    };
+    tick();
+    timer = setInterval(tick, 1000);
+  }
+
+  function showIdle() {
+    recording = null;
+    clearInterval(timer);
+    document.title = 'VisionTrack';
+    $('rec-setup').hidden = false;
+    $('rec-live').hidden = true;
+  }
+
+  async function loadMeetings() {
+    let items;
+    try {
+      items = await api('/api/meetings');
+    } catch (e) {
+      showError(e.message);
+      return;
+    }
+    const active = items.find(i => i.meeting.status === 'RECORDING');
+    if (active && !recording) showRecording(active.meeting);
+    $('m-empty').hidden = items.length > 0;
+    $('m-list').replaceChildren(...items.map(renderMeeting));
+  }
+
+  function renderMeeting({ meeting, folder }) {
+    const div = el('div', 'meeting');
+    const head = el('div', 'row');
+    const duration = Math.max(0, ...meeting.tracks.map(t => t.durationSeconds));
+    head.append(
+      el('span', 'title', meeting.title),
+      el('span', 'badge ' + meeting.status.toLowerCase(),
+        { RECORDING: 'REC', RECORDED: 'Recorded', FAILED: 'Failed' }[meeting.status] || meeting.status),
+      el('span', 'muted', new Date(meeting.startedAt).toLocaleString() + (duration ? ` · ${clock(duration)}` : '')));
+    div.append(head, el('div', 'path', [meeting.screenCapture, meeting.microphone].filter(Boolean).join(' · ')));
+    for (const text of [...meeting.warnings, meeting.error].filter(Boolean)) div.append(el('div', 'warn', text));
+    if (folder) {
+      const open = el('button', 'link', 'Open folder');
+      open.addEventListener('click', () =>
+        api(`/api/meetings/${meeting.id}/open-folder`, { method: 'POST' }).catch(e => showError(e.message)));
+      const row = el('div', 'row');
+      row.append(el('span', 'path', folder), open);
+      div.append(row);
+    }
+    return div;
+  }
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  async function api(url, options) {
+    const res = await fetch(url, options);
+    const text = await res.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch {}
+    if (!res.ok) throw new Error(data?.detail || data?.message || `Request failed (${res.status})`);
+    return data;
+  }
+
+  function consentGiven() { try { return localStorage.getItem(CONSENT_KEY) === 'yes'; } catch { return false; } }
+  function rememberConsent() { try { localStorage.setItem(CONSENT_KEY, 'yes'); } catch {} }
+  function showError(message) { $('m-error').textContent = message; $('m-error').hidden = false; }
+  function hideError() { $('m-error').hidden = true; }
+  function clock(seconds) {
+    const s = Math.max(0, Math.floor(seconds));
+    return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(n => String(n).padStart(2, '0')).join(':');
+  }
 })();
 </script>
 </body>

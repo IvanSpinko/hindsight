@@ -19,7 +19,8 @@ public record VisionTrackProperties(
         @Valid @NotNull Model model,
         @Valid @NotNull Analysis analysis,
         @Valid @NotNull Storage storage,
-        @Valid @NotNull Jobs jobs
+        @Valid @NotNull Jobs jobs,
+        @Valid @NotNull Meetings meetings
 ) {
 
     public record Model(
@@ -54,5 +55,17 @@ public record VisionTrackProperties(
     public record Jobs(
             @Min(1) int concurrency,
             @Min(0) int queueCapacity
+    ) {}
+
+    /**
+     * Meeting recording. {@code ffmpegDir} overrides the ffmpeg bundled with JavaCV (a folder with
+     * ffmpeg.exe and ffprobe.exe); {@code maxRecordingMinutes} also stops captures orphaned by a crash.
+     */
+    public record Meetings(
+            @NotNull Path directory,
+            @DecimalMin("0.1") @DecimalMax("5.0") double screenFps,
+            @Min(10) int segmentSeconds,
+            @Min(1) int maxRecordingMinutes,
+            Path ffmpegDir
     ) {}
 }
