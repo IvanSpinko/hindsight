@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VisionTrack</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='2' y='2' width='60' height='60' rx='14' fill='%232563eb'/%3E%3Cpath d='M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39' fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f7f7f8; --surface: #ffffff; --border: #e6e6e9; --text: #18181b; --muted: #71717a;
+    --accent: #2563eb; --accent-soft: #eff4ff; --error: #b91c1c; --error-soft: #fef2f2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111113; --surface: #1a1a1d; --border: #2e2e33; --text: #ececef; --muted: #a1a1aa;
+      --accent: #6d9bff; --accent-soft: #1c2640; --error: #fca5a5; --error-soft: #3b1d1d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 40px 16px 64px; }
+  header { margin-bottom: 24px; }
+  header h1 { margin: 0; font-size: 24px; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  h2 { margin: 0 0 12px; font-size: 16px; }
+  .muted { color: var(--muted); font-size: 14px; }
+
+  /* upload */
+  #drop {
+    display: block; border: 2px dashed var(--border); border-radius: 10px; padding: 28px 16px; text-align: center;
+    cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  #drop.over, #drop:hover { border-color: var(--accent); background: var(--accent-soft); }
+  #drop strong { display: block; }
+  #file-name { margin-top: 8px; font-weight: 600; word-break: break-all; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row.spread { justify-content: space-between; }
+  #upload-card .row { margin-top: 16px; }
+  button, a.button {
+    font: inherit; font-size: 15px; font-weight: 600; border: 1px solid transparent; border-radius: 8px;
+    padding: 8px 16px; cursor: pointer; background: var(--accent); color: #fff; text-decoration: none;
+  }
+  button.secondary, a.button.secondary { background: transparent; color: var(--text); border-color: var(--border); font-weight: 500; }
+  #drop[hidden] + .row { margin-top: 0; }
+  .link { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); font-weight: 500; cursor: pointer; text-decoration: none; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  .progress { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; margin: 16px 0 6px; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  .error { background: var(--error-soft); color: var(--error); padding: 10px 14px; border-radius: 8px; margin-top: 12px; }
+
+  /* summary */
+  #summary { font-size: 20px; font-weight: 600; margin: 0; }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  details p { margin: 6px 0 0; }
+
+  /* video */
+  .stage { position: relative; background: #000; border-radius: 8px; overflow: hidden; }
+  .stage video { display: block; width: 100%; max-height: 65vh; background: #000; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #video-card .row { margin-top: 10px; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; user-select: none; }
+
+  /* objects */
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 99px;
+    padding: 4px 12px; background: transparent; color: var(--text); font-weight: 500; font-size: 14px;
+  }
+  .chip .n { color: var(--muted); }
+  .chip.active { border-color: var(--accent); background: var(--accent-soft); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; display: inline-block; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td .obj { display: inline-flex; align-items: center; gap: 8px; }
+  td .id { color: var(--muted); font-size: 13px; }
+  .time { font-variant-numeric: tabular-nums; }
+  .downloads { margin-top: 14px; font-size: 14px; }
+  [hidden] { display: none !important; }
+
+  /* modes */
+  .tabs { display: inline-flex; gap: 4px; margin-top: 16px; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+  .tab { background: transparent; color: var(--muted); font-weight: 500; padding: 6px 14px; }
+  .tab.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  select { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); max-width: 260px; }
+  .stage.live { margin-top: 14px; }
+  .stage.live video { transform: scaleX(-1); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>VisionTrack</h1>
+    <p id="subtitle">Find out which objects appear in a video and when.</p>
+    <nav class="tabs">
+      <button class="tab active" data-mode="file">Video file</button>
+      <button class="tab" data-mode="live">Live camera</button>
+    </nav>
+  </header>
+
+  <div id="file-mode">
+  <section class="card" id="upload-card">
+    <label id="drop">
+      <input id="file" type="file" accept="video/*" hidden>
+      <strong>Drop a video here or click to choose</strong>
+      <span class="muted">MP4, MOV, MKV, AVI, WebM · up to 2 GB</span>
+      <div id="file-name"></div>
+    </label>
+    <div class="row">
+      <button id="analyze" disabled>Analyse</button>
+      <button id="reset" class="secondary" hidden>New video</button>
+    </div>
+    <div id="progress-box" hidden>
+      <div class="progress"><div id="bar"></div></div>
+      <div id="status-text" class="muted"></div>
+    </div>
+    <div id="error" class="error" hidden></div>
+  </section>
+
+  <section id="results" hidden>
+    <div class="card">
+      <p id="summary"></p>
+      <details>
+        <summary>Technical details</summary>
+        <p class="muted" id="tech"></p>
+      </details>
+    </div>
+
+    <div class="card" id="video-card" hidden>
+      <div class="stage">
+        <video id="player" controls preload="metadata"></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <div class="row spread">
+        <span class="muted">Click a time in the list below to jump there.</span>
+        <label class="toggle" id="boxes-toggle"><input type="checkbox" id="show-boxes" checked> Show boxes</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Objects</h2>
+      <div class="filters" id="filters"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+          <tr><th>Object</th><th>Appears</th><th class="num">On screen</th><th class="num">Confidence</th></tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p class="muted" id="no-rows" hidden>No objects were detected in this video.</p>
+      <div class="downloads row">
+        <span class="muted">Download:</span>
+        <button class="link" id="dl-csv">CSV</button>
+        <button class="link" id="dl-json">JSON</button>
+        <a class="link" id="dl-video" hidden>Video with boxes</a>
+      </div>
+    </div>
+  </section>
+  </div>
+
+  <section id="live-mode" hidden>
+    <div class="card">
+      <div class="row spread">
+        <div class="row">
+          <button id="cam-start">Start camera</button>
+          <button id="cam-stop" class="secondary" hidden>Stop</button>
+          <select id="cam-select" hidden></select>
+        </div>
+        <span class="muted" id="cam-status">Camera is off</span>
+      </div>
+      <div class="stage live" id="cam-stage" hidden>
+        <video id="cam" autoplay playsinline muted></video>
+        <canvas id="cam-overlay"></canvas>
+      </div>
+      <div id="cam-error" class="error" hidden></div>
+    </div>
+    <div class="card" id="cam-objects-card" hidden>
+      <h2>In view now</h2>
+      <div class="filters" id="cam-objects"></div>
+      <p class="muted" id="cam-none">Nothing recognised yet.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const fileInput = $('file'), drop = $('drop'), analyzeBtn = $('analyze'), resetBtn = $('reset');
+  const player = $('player');
+  let selectedFile = null, currentJob = null, activeLabel = null, pollTimer = null, annotatedVideo = false;
+  let highlightId = null;
+
+  // ---------- upload ----------
+  function selectFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    $('file-name').textContent = `${file.name} (${(file.size / 1048576).toFixed(1)} MB)`;
+    analyzeBtn.disabled = false;
+    hideError();
+  }
+  fileInput.addEventListener('change', () => selectFile(fileInput.files[0]));
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => selectFile(e.dataTransfer.files[0]));
+
+  analyzeBtn.addEventListener('click', () => {
+    if (!selectedFile) return;
+    analyzeBtn.disabled = true;
+    hideError();
+    $('results').hidden = true;
+    showProgress(0, 'Uploading…');
+
+    const form = new FormData();
+    form.append('file', selectedFile);
+    const xhr = new XMLHttpRequest();   // XHR gives upload progress, fetch does not
+    xhr.open('POST', '/api/analyses');
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) showProgress(e.loaded / e.total * 100, `Uploading… ${Math.round(e.loaded / e.total * 100)}%`);
+    };
+    xhr.onload = () => {
+      const body = parseJson(xhr.responseText);
+      if (xhr.status !== 202) return fail(body?.detail || `Upload failed (HTTP ${xhr.status})`);
+      setPreview(selectedFile);
+      track(body.id);
+    };
+    xhr.onerror = () => fail('Upload failed – is the server running?');
+    xhr.send(form);
+  });
+
+  resetBtn.addEventListener('click', () => {
+    clearTimeout(pollTimer);
+    selectedFile = null; currentJob = null;
+    fileInput.value = '';
+    $('file-name').textContent = '';
+    $('progress-box').hidden = true;
+    $('results').hidden = true;
+    $('drop').hidden = false;
+    resetBtn.hidden = true;
+    analyzeBtn.hidden = false;
+    analyzeBtn.disabled = true;
+    hideError();
+    history.replaceState(null, '', location.pathname);
+  });
+
+  // ---------- polling ----------
+  function track(jobId) {
+    history.replaceState(null, '', `?job=${encodeURIComponent(jobId)}`);
+    const poll = async () => {
+      let job;
+      try {
+        const res = await fetch(`/api/analyses/${encodeURIComponent(jobId)}`);
+        if (res.status === 404) return fail('This analysis no longer exists (the server may have restarted).');
+        job = await res.json();
+      } catch {
+        pollTimer = setTimeout(poll, 3000);
+        return;
+      }
+      if (job.status === 'QUEUED') showProgress(0, 'Waiting in queue…');
+      else if (job.status === 'PROCESSING') showProgress(job.progressPercent, `Analysing… ${job.progressPercent}%`);
+      else if (job.status === 'FAILED') return fail(`Analysis failed: ${job.error || 'unknown error'}`);
+      else if (job.status === 'COMPLETED') {
+        // The upload form is no longer needed: show just the file name and a "New video" button
+        $('progress-box').hidden = true;
+        $('drop').hidden = true;
+        analyzeBtn.hidden = true;
+        resetBtn.hidden = false;
+        $('file-name').textContent = '';
+        return render(job);
+      }
+      pollTimer = setTimeout(poll, 1000);
+    };
+    poll();
+  }
+
+  // ---------- results ----------
+  function render(job) {
+    currentJob = job;
+    activeLabel = null;
+    highlightId = null;
+    const r = job.result;
+
+    $('summary').textContent = r.totalObjects
+      ? `${plural(r.totalObjects, 'object')} of ${plural(r.counts.length, 'type')} found in ${job.fileName} (${clock(r.video.durationSeconds)})`
+      : `No objects found in ${job.fileName}`;
+    $('tech').textContent =
+      `${r.video.width}×${r.video.height}, ${r.video.frameRate} fps · ${r.processing.framesAnalyzed} frames analysed ` +
+      `in ${r.processing.processingSeconds} s · model: ${r.processing.model}`;
+
+    renderFilters();
+    showVideo(job);
+    renderRows();
+    $('results').hidden = false;
+  }
+
+  function renderFilters() {
+    const r = currentJob.result;
+    const filters = $('filters');
+    filters.hidden = r.counts.length < 2;
+    const chip = (label, count, color) => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (activeLabel === label ? ' active' : '');
+      if (color) b.append(dot(color));
+      b.append(label ?? 'All');
+      const n = document.createElement('span');
+      n.className = 'n';
+      n.textContent = count;
+      b.append(n);
+      b.addEventListener('click', () => {
+        activeLabel = label;
+        renderFilters();
+        renderRows();
+      });
+      return b;
+    };
+    filters.replaceChildren(chip(null, r.totalObjects), ...r.counts.map(c => chip(c.label, c.count, colorFor(c.label))));
+  }
+
+  function renderRows() {
+    const objects = currentJob.result.objects.filter(o => !activeLabel || o.label === activeLabel);
+    const canSeek = !$('video-card').hidden;
+    $('rows').replaceChildren(...objects.map(o => {
+      const tr = document.createElement('tr');
+
+      const name = document.createElement('td');
+      const obj = document.createElement('span');
+      obj.className = 'obj';
+      const id = document.createElement('span');
+      id.className = 'id';
+      id.textContent = `#${o.id}`;
+      obj.append(dot(colorFor(o.label)), o.label, id);
+      name.append(obj);
+
+      const when = document.createElement('td');
+      const range = `${clock(o.firstSeenSeconds)} – ${clock(o.lastSeenSeconds)}`;
+      if (canSeek) {
+        const btn = document.createElement('button');
+        btn.className = 'link time';
+        btn.textContent = range;
+        btn.title = 'Jump to first appearance';
+        btn.addEventListener('click', () => {
+          highlightId = o.id;
+          player.currentTime = o.firstSeenSeconds;
+          player.pause();
+          player.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        when.append(btn);
+      } else {
+        when.className = 'time';
+        when.textContent = range;
+      }
+
+      tr.append(name, when, cell(`${Math.max(1, Math.round(o.visibleSeconds))} s`), cell(`${Math.round(o.confidence * 100)}%`));
+      return tr;
+    }));
+    $('no-rows').hidden = objects.length > 0;
+  }
+
+  function cell(text) {
+    const td = document.createElement('td');
+    td.className = 'num';
+    td.textContent = text;
+    return td;
+  }
+
+  function dot(color) {
+    const d = document.createElement('span');
+    d.className = 'dot';
+    d.style.background = color;
+    return d;
+  }
+
+  // 83.4 → "1:23", 3725 → "1:02:05"
+  function clock(seconds) {
+    const s = Math.floor(seconds), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, sec = String(s % 60).padStart(2, '0');
+    return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+  }
+
+  function plural(n, word) {
+    return `${n} ${word}${n === 1 ? '' : 's'}`;
+  }
+
+  // ---------- boxes over the video ----------
+  // The server reports each object's position in every analysed frame (result.objects[].track).
+  // While the video plays, positions between two analysed frames are interpolated.
+  const overlay = $('overlay'), ctx = overlay.getContext('2d');
+  const COLORS = ['#ff5252', '#40c4ff', '#69f0ae', '#ffd740', '#e040fb', '#ff9100', '#64ffda', '#b388ff', '#eeff41', '#ff80ab'];
+
+  function colorFor(label) {
+    let h = 0;
+    for (const ch of label) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return COLORS[h % COLORS.length];
+  }
+
+  function positionAt(track, t, step) {
+    if (!track || !track.length) return null;
+    const hold = step * 0.75;           // keep a box shortly before/after the frames it was seen in
+    if (t < track[0].t - hold || t > track[track.length - 1].t + hold) return null;
+    let lo = 0, hi = track.length - 1;  // last position with p.t <= t
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (track[mid].t <= t) lo = mid; else hi = mid - 1;
+    }
+    const a = track[lo];
+    if (a.t > t) return a;              // just before the first sighting
+    const b = track[lo + 1];
+    if (b && b.t - a.t <= step * 2.5) { // consecutive sightings → smooth movement
+      const f = (t - a.t) / (b.t - a.t);
+      return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, w: a.w + (b.w - a.w) * f, h: a.h + (b.h - a.h) * f };
+    }
+    return t - a.t <= hold ? a : null;  // object briefly not detected → hide
+  }
+
+  function drawOverlay() {
+    const w = overlay.clientWidth, h = overlay.clientHeight, dpr = window.devicePixelRatio || 1;
+    if (overlay.width !== Math.round(w * dpr) || overlay.height !== Math.round(h * dpr)) {
+      overlay.width = Math.round(w * dpr);
+      overlay.height = Math.round(h * dpr);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    if (!currentJob || annotatedVideo || !$('show-boxes').checked || !player.videoWidth || $('video-card').hidden) return;
+
+    const r = currentJob.result;
+    // Where the picture actually sits inside the <video> element (it is letterboxed to keep its aspect ratio)
+    const fit = Math.min(w / player.videoWidth, h / player.videoHeight);
+    const cw = player.videoWidth * fit, ch = player.videoHeight * fit;
+    const ox = (w - cw) / 2, oy = (h - ch) / 2;
+    const sx = cw / r.video.width, sy = ch / r.video.height;
+    const fps = r.processing.sampleFps > 0 ? r.processing.sampleFps : (r.video.frameRate || 30);
+    const t = player.currentTime;
+
+    ctx.font = '600 13px system-ui, sans-serif';
+    ctx.textBaseline = 'top';
+    for (const o of r.objects) {
+      if (activeLabel && o.label !== activeLabel) continue;
+      const p = positionAt(o.track, t, 1 / fps);
+      if (!p) continue;
+      const x = ox + p.x * sx, y = oy + p.y * sy, bw = p.w * sx, bh = p.h * sy;
+      const color = colorFor(o.label);
+      const highlighted = o.id === highlightId;
+
+      ctx.lineWidth = highlighted ? 4 : 2;
+      ctx.strokeStyle = color;
+      ctx.strokeRect(x, y, bw, bh);
+
+      const text = `#${o.id} ${o.label}`;
+      const tw = ctx.measureText(text).width + 8, th = 18;
+      const ty = y - th >= oy ? y - th : y;   // above the box, or inside it at the top edge
+      ctx.fillStyle = color;
+      ctx.fillRect(x - (ctx.lineWidth / 2), ty, tw, th);
+      ctx.fillStyle = '#000';
+      ctx.fillText(text, x + 4 - (ctx.lineWidth / 2), ty + 2);
+    }
+  }
+
+  (function animate() {
+    drawOverlay();
+    requestAnimationFrame(animate);
+  })();
+
+  // ---------- downloads ----------
+  $('dl-json').addEventListener('click', () => download(JSON.stringify(currentJob, null, 2), 'application/json', 'json'));
+  $('dl-csv').addEventListener('click', () => {
+    const header = ['id', 'label', 'first_seen', 'first_seen_seconds', 'last_seen', 'last_seen_seconds', 'visible_seconds', 'confidence'];
+    const lines = currentJob.result.objects.map(o =>
+      [o.id, o.label, o.firstSeen, o.firstSeenSeconds, o.lastSeen, o.lastSeenSeconds, o.visibleSeconds, o.confidence]
+        .map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+    download([header.join(','), ...lines].join('\n'), 'text/csv', 'csv');
+  });
+  function download(content, type, ext) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type }));
+    a.download = `${currentJob.fileName.replace(/\.[^.]+$/, '')}-objects.${ext}`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // ---------- video ----------
+  // Preferred: the server's copy with the boxes drawn into the frames (works after a page refresh
+  // and can be downloaded). Fallback: the local file with boxes drawn live on the canvas overlay.
+
+  function showVideo(job) {
+    annotatedVideo = Boolean(job.annotatedVideoUrl);
+    $('boxes-toggle').hidden = annotatedVideo;
+    $('dl-video').hidden = !annotatedVideo;
+    if (!annotatedVideo) return;
+
+    revokeLocalVideo();
+    player.src = job.annotatedVideoUrl;
+    $('dl-video').href = `${job.annotatedVideoUrl}?download=true`;
+    $('video-card').hidden = false;
+  }
+
+  function setPreview(file) {
+    revokeLocalVideo();
+    annotatedVideo = false;
+    player.src = URL.createObjectURL(file);
+    $('video-card').hidden = false;
+  }
+
+  function revokeLocalVideo() {
+    if (player.src.startsWith('blob:')) URL.revokeObjectURL(player.src);
+  }
+
+  // ---------- helpers ----------
+  function showProgress(percent, text) {
+    $('progress-box').hidden = false;
+    $('bar').style.width = `${Math.max(0, Math.min(100, percent))}%`;
+    $('status-text').textContent = text;
+  }
+  function fail(message) {
+    $('error').textContent = message;
+    $('error').hidden = false;
+    $('progress-box').hidden = true;
+    $('drop').hidden = false;
+    analyzeBtn.hidden = false;
+    analyzeBtn.disabled = !selectedFile;
+    resetBtn.hidden = false;
+  }
+  function hideError() { $('error').hidden = true; }
+  function parseJson(text) { try { return JSON.parse(text); } catch { return null; } }
+
+  // Resume an analysis after a page refresh
+  const jobFromUrl = new URLSearchParams(location.search).get('job');
+  if (jobFromUrl) track(jobFromUrl);
+})();
+</script>
+
+<script>
+// ---------- live camera ----------
+(() => {
+  const $ = id => document.getElementById(id);
+  const COLORS = ['#ff5252', '#40c4ff', '#69f0ae', '#ffd740', '#e040fb', '#ff9100', '#64ffda', '#b388ff', '#eeff41', '#ff80ab'];
+  const colorFor = label => { let h = 0; for (const ch of label) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const MAX_SIDE = 960;   // frames sent to the server are downscaled to this
+
+  const cam = $('cam'), overlay = $('cam-overlay'), ctx = overlay.getContext('2d');
+  const grab = document.createElement('canvas');
+  let stream = null, running = false, last = null, frames = 0, fpsSince = 0, fps = 0;
+
+  // Mode switch
+  document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+    const live = tab.dataset.mode === 'live';
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+    $('file-mode').hidden = live;
+    $('live-mode').hidden = !live;
+    $('subtitle').textContent = live ? 'Point the camera at things to recognise them live.'
+                                     : 'Find out which objects appear in a video and when.';
+    if (!live) stop();
+  }));
+
+  $('cam-start').addEventListener('click', () => start());
+  $('cam-stop').addEventListener('click', stop);
+  $('cam-select').addEventListener('change', e => start(e.target.value));
+
+  async function start(deviceId) {
+    stop();
+    $('cam-error').hidden = true;
+    $('cam-status').textContent = 'Starting camera…';
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: deviceId ? { deviceId: { exact: deviceId } }
+                        : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+    } catch (e) {
+      $('cam-status').textContent = 'Camera is off';
+      $('cam-error').textContent =
+        e.name === 'NotAllowedError' ? 'Camera access was denied. Allow it in the permission prompt and try again.'
+        : e.name === 'NotFoundError' ? 'No camera was found on this computer.'
+        : e.name === 'NotReadableError' ? 'The camera is used by another app (Zoom, Teams, …). Close it and try again.'
+        : `Cannot start the camera: ${e.message}`;
+      $('cam-error').hidden = false;
+      return;
+    }
+    cam.srcObject = stream;
+    await cam.play().catch(() => {});
+    $('cam-stage').hidden = false;
+    $('cam-objects-card').hidden = false;
+    $('cam-start').hidden = true;
+    $('cam-stop').hidden = false;
+    await fillCameraList();
+    running = true;
+    frames = 0;
+    fpsSince = performance.now();
+    detectLoop();
+  }
+
+  function stop() {
+    running = false;
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null;
+    cam.srcObject = null;
+    last = null;
+    $('cam-stage').hidden = true;
+    $('cam-objects-card').hidden = true;
+    $('cam-start').hidden = false;
+    $('cam-stop').hidden = true;
+    $('cam-status').textContent = 'Camera is off';
+  }
+
+  async function fillCameraList() {
+    const select = $('cam-select');
+    const cameras = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    const current = stream?.getVideoTracks()[0]?.getSettings().deviceId;
+    select.replaceChildren(...cameras.map((c, i) => {
+      const option = new Option(c.label || `Camera ${i + 1}`, c.deviceId);
+      option.selected = c.deviceId === current;
+      return option;
+    }));
+    select.hidden = cameras.length < 2;
+  }
+
+  // Sends one frame at a time: the next frame goes as soon as the previous answer arrives
+  async function detectLoop() {
+    while (running) {
+      if (!cam.videoWidth) { await sleep(50); continue; }
+      const scale = Math.min(1, MAX_SIDE / Math.max(cam.videoWidth, cam.videoHeight));
+      grab.width = Math.round(cam.videoWidth * scale);
+      grab.height = Math.round(cam.videoHeight * scale);
+      grab.getContext('2d').drawImage(cam, 0, 0, grab.width, grab.height);
+      const blob = await new Promise(r => grab.toBlob(r, 'image/jpeg', 0.8));
+      try {
+        const res = await fetch('/api/live/detect', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const result = await res.json();
+        if (!running) break;
+        last = result;
+      } catch {
+        if (running) $('cam-status').textContent = 'The server is not responding…';
+        await sleep(1000);
+        continue;
+      }
+      frames++;
+      const now = performance.now();
+      if (now - fpsSince >= 1000) { fps = frames * 1000 / (now - fpsSince); frames = 0; fpsSince = now; }
+      $('cam-status').textContent = `${fps.toFixed(1)} fps · ${last.inferenceMillis} ms per frame`;
+      renderObjects();
+    }
+  }
+
+  function renderObjects() {
+    const counts = new Map();
+    for (const o of last.objects) counts.set(o.label, (counts.get(o.label) || 0) + 1);
+    const sorted = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    $('cam-objects').replaceChildren(...sorted.map(([label, n]) => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = colorFor(label);
+      const count = document.createElement('span');
+      count.className = 'n';
+      count.textContent = n;
+      chip.append(dot, label, count);
+      return chip;
+    }));
+    $('cam-none').hidden = sorted.length > 0;
+  }
+
+  // Boxes over the (mirrored) camera picture
+  function draw() {
+    const w = overlay.clientWidth, h = overlay.clientHeight, dpr = window.devicePixelRatio || 1;
+    if (overlay.width !== Math.round(w * dpr) || overlay.height !== Math.round(h * dpr)) {
+      overlay.width = Math.round(w * dpr);
+      overlay.height = Math.round(h * dpr);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    if (running && last && cam.videoWidth) {
+      const fit = Math.min(w / cam.videoWidth, h / cam.videoHeight);
+      const cw = cam.videoWidth * fit, ch = cam.videoHeight * fit;
+      const ox = (w - cw) / 2, oy = (h - ch) / 2;
+      const s = cw / last.width;
+      ctx.font = '600 13px system-ui, sans-serif';
+      ctx.textBaseline = 'top';
+      ctx.lineWidth = 2;
+      for (const o of last.objects) {
+        const x = ox + (last.width - o.x - o.w) * s, y = oy + o.y * s, bw = o.w * s, bh = o.h * s;
+        const color = colorFor(o.label);
+        ctx.strokeStyle = color;
+        ctx.strokeRect(x, y, bw, bh);
+        const text = `${o.label} ${Math.round(o.confidence * 100)}%`;
+        const tw = ctx.measureText(text).width + 8, th = 18;
+        const ty = y - th >= oy ? y - th : y;
+        ctx.fillStyle = color;
+        ctx.fillRect(x - 1, ty, tw, th);
+        ctx.fillStyle = '#000';
+        ctx.fillText(text, x + 3, ty + 2);
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# Used by the packaged desktop app (VisionTrack.exe), see packaging/build-desktop.ps1
+server:
+  address: 127.0.0.1
+
+logging:
+  file:
+    name: ${LOCALAPPDATA:${user.home}}/VisionTrack/visiontrack.log
+
+visiontrack:
+  open-browser: true
+  tray-icon: true
+  storage:
+    directory: ${LOCALAPPDATA:${user.home}}/VisionTrack/uploads

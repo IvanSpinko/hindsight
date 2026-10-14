@@ -1,0 +1,84 @@
+# VisionTrack – video object analysis
+
+Upload a video; VisionTrack detects objects with a YOLO model (ONNX Runtime), tracks them across
+frames so each physical object is counted once, and reports **how many objects of each type**
+appeared and the **timecode when each one was first (and last) seen**.
+
+## Run locally
+
+```bash
+mvn package
+java -jar target/visiontrack-object-detection-aws-1.0-SNAPSHOT.jar
+```
+
+Open http://localhost:8080, drop in a video and wait for the results. Settings live in
+`src/main/resources/application.yml` (model, thresholds, sampling rate, upload limits).
+
+## REST API
+
+| Method | Path                  | Description                                                    |
+|--------|-----------------------|----------------------------------------------------------------|
+| POST   | `/api/analyses`       | multipart field `file` → `202 Accepted`, job JSON + `Location` |
+| GET    | `/api/analyses/{id}`  | status (`QUEUED`, `PROCESSING`, `COMPLETED`, `FAILED`), progress, result |
+| GET    | `/api/analyses`       | all jobs, newest first                                         |
+| GET    | `/actuator/health`    | health check for load balancers                                |
+
+```bash
+curl -F "file=@street.mp4" http://localhost:8080/api/analyses
+curl http://localhost:8080/api/analyses/<id>
+```
+
+Completed result (shortened):
+
+```json
+{
+  "totalObjects": 8,
+  "counts":  [{ "label": "person", "count": 4, "firstSeen": "00:00:02.000" }],
+  "objects": [{ "id": 1, "label": "person", "firstSeen": "00:00:02.000", "lastSeen": "00:00:04.800",
+                "visibleSeconds": 2.8, "confidence": 0.903, "box": { "x": 403, "y": 266, "width": 133, "height": 336 } }]
+}
+```
+
+## How it works
+
+```
+upload ─► VideoStorage ─► job queue ─► VideoAnalyzer
+                                         ├─ VideoReader (FFmpeg)       decode, sample N fps
+                                         ├─ OnnxYoloDetector (YOLO)    letterbox → infer → NMS
+                                         └─ ObjectTracker (IoU)        one track = one counted object
+```
+
+| Package       | Responsibility                                               |
+|---------------|--------------------------------------------------------------|
+| `web`         | REST controller, error responses                             |
+| `job`         | job lifecycle, background execution, `JobRepository`         |
+| `analysis`    | orchestrates a video run, builds the result                  |
+| `detection`   | ONNX Runtime YOLO detector (CUDA → DirectML → CPU)          |
+| `tracking`    | links detections across frames                               |
+| `video`       | FFmpeg decoding and encoding                                 |
+| `storage`     | where uploads are kept (`VideoStorage`)                      |
+
+### Tuning the count
+
+* `analysis.sample-fps` – frames analysed per second of video (higher = more accurate, slower).
+* `analysis.track-max-gap-seconds` – how long an object may be hidden and still be the same object.
+* `analysis.track-min-hits` – detections needed before something counts (filters one-frame mistakes).
+* Overlapping synonyms in `classes.txt` (e.g. `shoe`/`sneaker`, `cup`/`mug`, `hat`/`cap`) can make
+  YOLO-World report the same thing twice – keep the class list free of near-duplicates.
+
+## Deploying to AWS
+
+```bash
+docker build --build-arg MODEL=yoloworldx-960.onnx -t visiontrack .
+docker run -p 8080:8080 visiontrack
+```
+
+Every setting can be overridden with environment variables, e.g. `VISIONTRACK_ANALYSIS_SAMPLE_FPS=10`.
+The image runs inference on CPU; for a GPU instance (g4dn/g5) base the runtime stage on an
+`nvidia/cuda:12.x-cudnn-runtime` image with a JRE and run it with the NVIDIA container runtime.
+
+The extension points for a scalable setup are already interfaces:
+
+* `VideoStorage` → S3 implementation (upload straight to S3 with presigned URLs).
+* `JobRepository` → DynamoDB implementation, so jobs survive restarts and are shared between instances.
+* The in-process queue → SQS, with workers running `VideoAnalyzer`.

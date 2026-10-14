@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: visiontrack
+  servlet:
+    multipart:
+      max-file-size: 2GB
+      max-request-size: 2GB
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  port: 8080
+  tomcat:
+    max-swallow-size: -1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+visiontrack:
+  # Open http://localhost:8080 in the default browser on startup (local development only)
+  open-browser: true
+  model:
+    path: models/yoloworldx-960.onnx
+    classes-path: models/classes.txt
+    confidence-threshold: 0.35
+    nms-threshold: 0.45
+    backends: [CUDA, CPU]
+    # Windows only; missing files are skipped. See OnnxYoloDetector.preloadNativeLibraries.
+    native-preload:
+      - C:/Windows/System32/msvcp140.dll
+      - C:/Windows/System32/vcruntime140.dll
+      - C:/Windows/System32/vcruntime140_1.dll
+      - C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.6/bin/cudart64_12.dll
+      - C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.6/bin/cublas64_12.dll
+      - C:/Program Files/NVIDIA/CUDNN/v9.26/bin/12.9/x64/cudnn64_9.dll
+  analysis:
+    sample-fps: 5
+    max-frame-dimension: 1280
+    track-iou-threshold: 0.25
+    track-max-gap-seconds: 1.5
+    track-min-hits: 2
+    # Save a copy of the video with object boxes drawn in (GET /api/analyses/{id}/video)
+    annotated-video: true
+  storage:
+    directory: data/uploads
+    delete-after-processing: true
+    allowed-extensions: [mp4, mov, m4v, avi, mkv, webm, wmv, mpg, mpeg]
+  jobs:
+    concurrency: 1
+    queue-capacity: 20
