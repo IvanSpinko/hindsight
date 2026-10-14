@@ -43,7 +43,7 @@ unfinished meetings are joined on the next start. After "Stop" the meeting is pr
 ignoring participant webcams, transitions and bullet-by-bullet builds, and saves `slides/slide-NN.png`.
 Then the microphone track is transcribed with whisper.cpp (`transcript.md`, `transcript.json`): Silero VAD
 finds the speech, each piece of up to 30 s gets its own language (Russian or English), large-v3-turbo runs
-on CUDA and small on the CPU when CUDA is unavailable. Install it once with
+on CUDA. Install it once with
 `powershell -ExecutionPolicy Bypass -File packaging\get-whisper.ps1` (downloads ~2 GB into `tools\whisper`
 and `models\whisper`); without it meetings are still recorded and get slides, only the transcript is skipped.
 
@@ -77,7 +77,7 @@ upload ─► VideoStorage ─► job queue ─► VideoAnalyzer
 | `web`         | REST controller, error responses                             |
 | `job`         | job lifecycle, background execution, `JobRepository`         |
 | `analysis`    | orchestrates a video run, builds the result                  |
-| `detection`   | ONNX Runtime YOLO detector (CUDA → DirectML → CPU)          |
+| `detection`   | ONNX Runtime YOLO detector (CUDA only)                       |
 | `tracking`    | links detections across frames                               |
 | `video`       | FFmpeg decoding and encoding                                 |
 | `storage`     | where uploads are kept (`VideoStorage`)                      |

@@ -11,7 +11,7 @@ produces **structured meeting notes**: a local Markdown file and, optionally, a 
 ## 2. Context: what already exists
 
 - Java 21 + Spring Boot 3.5, desktop build via jpackage (`dist/VisionTrack`, tray icon, `desktop` profile).
-- ONNX Runtime GPU with a CUDA → CPU backend chain (`OnnxYoloDetector`), CUDA libraries in `app/cuda`.
+- ONNX Runtime GPU on CUDA (`OnnxYoloDetector`; a CUDA → CPU chain until 2026-10-14), CUDA libraries in `app/cuda`.
 - FFmpeg via JavaCV (`VideoReader`, `VideoWriter`).
 - Job queue and statuses (`AnalysisJobService`, `JobRepository`), web UI `static/index.html`.
 - Video analysis (YOLO-World + IoU tracker) and live camera detection. **Do not break existing functionality.**
@@ -22,7 +22,9 @@ produces **structured meeting notes**: a local Markdown file and, optionally, a 
 - local use only, on the user's PC running Windows 10/11 x64;
 - **GPU (NVIDIA CUDA) is required** for all heavy processing. Without CUDA the app shows a clear error
   that an NVIDIA graphics card is required; there is no CPU fallback (decision of 2026-10-14, replaces the
-  original "automatic fallback to CPU" here and in 5.3);
+  original "automatic fallback to CPU" here and in 5.3). Done: YOLO, Whisper and screen encoding (NVENC)
+  run on the GPU only. Still on the CPU: Silero VAD (whisper.cpp b5454 aborts with `-ug`), AAC audio,
+  slide comparison and video decoding (see the handoff note);
 - the app can be given to a friend as an archive: their keys and data are separate, mine are never shared.
 
 **Out of scope:** server, accounts, AWS, payments, installer signing, macOS/Linux desktop,
@@ -55,7 +57,7 @@ AMD/DirectML, live transcript during the meeting (that is the next version).
 - Each slide: `slides/slide-NN.png` + timestamp.
 
 ### 5.3 Speech recognition
-- Whisper model on the GPU. Default model: `large-v3-turbo` on CUDA, `small` on CPU (chosen automatically).
+- Whisper model on the GPU: `large-v3-turbo` on CUDA. Without CUDA the step fails with "Speech recognition needs an NVIDIA graphics card".
 - Languages: Russian and English (configurable list, Russian is the fallback). Meetings often switch
   between them, so the language is detected for every piece of speech (≤ 30 s, cut at pauses), not once
   per meeting. Text on slides (often English) is read by Claude from the slide images in stage 4.
@@ -67,7 +69,8 @@ AMD/DirectML, live transcript during the meeting (that is the next version).
   - Recommendation: start with option A.
   - **Decision (stage 3): option A.** whisper.cpp b5454 (CUDA 12.4 build) runs on an RTX 5070 (sm_120,
     kernels JIT-compiled by the driver on first use). One hour of speech is transcribed in ~1 min on the GPU
-    (large-v3-turbo q8_0, ~0.9 GB VRAM), far below the 10-minute target; the CPU fallback (small q8_0) works.
+    (large-v3-turbo q8_0, ~0.9 GB VRAM), far below the 10-minute target. The CPU fallback (small q8_0) was
+    removed on 2026-10-14 (GPU only).
     Option B was not prototyped: it would need a Java decoder, tokenizer and language detection for the same
     result, and A already meets every requirement.
 
@@ -140,7 +143,7 @@ HTTP clients (Claude, Notion): Spring `RestClient` or the official Anthropic Jav
 - Processing a one-hour meeting on a GPU (RTX class): ≤ 10 min, excluding Claude response time.
 - Minimal PC load while recording (the meeting must not lag): capture only, no recognition.
 - A crash during recording does not lose what has already been recorded (recording in parts).
-- Clear errors in the UI: "Microphone not found", "CUDA unavailable — running on CPU", "Invalid Notion key".
+- Clear errors in the UI: "Microphone not found", "... needs an NVIDIA graphics card with CUDA", "Invalid Notion key".
 - Logs in `%LOCALAPPDATA%\VisionTrack\visiontrack.log`, without secrets and without transcript text.
 - Unit tests: slide detector, building Notion blocks (splitting by limits), JSON parsing and validation, Markdown export.
 
@@ -151,7 +154,7 @@ HTTP clients (Claude, Notion): Spring `RestClient` or the official Anthropic Jav
 | 0 | `git init`, first commit, tag `v1.0-video` | the repository has no `dist/`, `data/` or secrets; `mvn package` passes |
 | 1 | Record screen and microphone to files | a 5-minute recording, files are valid, start/stop buttons in the UI |
 | 2 | Slide detector | on a test recording of a presentation ≥ 90% of changes are found, few duplicates |
-| 3 | Whisper on GPU (prototype A/B → choice) | transcript of Russian speech with timestamps; "on CUDA" in the log; CPU fallback works |
+| 3 | Whisper on GPU (prototype A/B → choice) | transcript of Russian speech with timestamps; "on CUDA" in the log; without CUDA a clear "NVIDIA GPU required" error |
 | 4 | Notes via Claude + Markdown | `notes.json` is valid against the schema, `notes.md` is readable; without a key only the transcript is saved |
 | 5 | Notion export | page created with all properties, checkboxes and images; retrying the export works |
 | 6 | System audio (loopback) | the other participant's voice from Zoom ends up in the transcript as "Other participant" |
@@ -162,7 +165,7 @@ Work one stage at a time: at the end of each stage, build, test, commit.
 
 ## 10. Risks
 - WASAPI loopback requires native code. If it drags on, temporarily use "Stereo Mix" or microphone only.
-- VRAM: Whisper large + other programs on the GPU. Need automatic fallback to a smaller model when memory runs out.
+- VRAM: Whisper large + other programs on the GPU. Consider a smaller GPU model when memory runs out (no CPU fallback).
 - Build size grows by ~1–1.5 GB because of Whisper. Later we can switch to downloading the model on first run.
 - Notion API changes (data sources). Check against the documentation during implementation.
 

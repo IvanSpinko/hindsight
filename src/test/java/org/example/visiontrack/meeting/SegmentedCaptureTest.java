@@ -33,7 +33,9 @@ class SegmentedCaptureTest {
     @Test
     void screenSegmentsJoinIntoOneMp4() throws Exception {
         List<String> args = new ArrayList<>(CaptureArgs.common(60));
-        args.addAll(List.of("-re", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=2", "-c:v", "libopenh264", "-pix_fmt", "yuv420p"));
+        // The real screen encoder (NVENC), so the test also checks that it starts a part at every forced keyframe
+        args.addAll(List.of("-re", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=2"));
+        args.addAll(ScreenCapture.ENCODER);
         args.addAll(CaptureArgs.keyframeAtEverySegment(1));
         args.addAll(CaptureArgs.segmentedOutput(dir, "screen", 1));
 

@@ -1,6 +1,7 @@
 package org.example.visiontrack.web;
 
 import org.example.visiontrack.detection.Detection;
+import org.example.visiontrack.detection.ObjectDetectorProvider;
 import org.example.visiontrack.detection.OnnxYoloDetector;
 import org.example.visiontrack.detection.RgbImage;
 import org.springframework.http.HttpStatus;
@@ -23,14 +24,15 @@ public class LiveDetectionController {
 
     public record LiveResult(int width, int height, long inferenceMillis, List<LiveObject> objects) {}
 
-    private final OnnxYoloDetector detector;
+    private final ObjectDetectorProvider detectors;
 
-    public LiveDetectionController(OnnxYoloDetector detector) {
-        this.detector = detector;
+    public LiveDetectionController(ObjectDetectorProvider detectors) {
+        this.detectors = detectors;
     }
 
     @PostMapping(path = "/api/live/detect", consumes = {"image/jpeg", "image/png"})
     public LiveResult detect(@RequestBody byte[] frame) throws IOException {
+        OnnxYoloDetector detector = detectors.get();
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(frame));
         if (image == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The frame is not a valid image");

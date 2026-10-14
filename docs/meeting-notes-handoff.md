@@ -20,7 +20,7 @@ Goal for the next session: **stage 4 (notes via Claude + Markdown)**, then stage
 - Repository: https://github.com/IvanSpinko/visiontrack-object-detection-aws, remote `origin`.
 - Work happens on branch `meeting-notes`; `main` and tag `v1.0-video` are the video-analysis release.
   Merge `meeting-notes` into `main` (pull request) when the user asks.
-- Tests: 45, all green (`mvn package`).
+- Tests: 48, all green (`mvn package`). They need the NVIDIA GPU (NVENC in the capture and slide tests).
 
 ## 2. Working agreement with the user
 
@@ -36,20 +36,13 @@ Goal for the next session: **stage 4 (notes via Claude + Markdown)**, then stage
 - **Everything on the GPU, no CPU processing** (user request, 2026-10-14). This overrides the spec's
   "automatic fallback to CPU" (sections 3 and 5.3). **Decided for now:** without CUDA the app shows a
   clear error that an NVIDIA GPU is required (driver hint included) and does not fall back to the CPU.
-  Not implemented yet: do it first in the next session (see "Next task" below). CPU work list in section 6.
-
-### Next task (before stage 4): GPU only, clear error without CUDA
-- `WhisperCppTranscriber.startServer`: drop the CPU fallback (`device`, `cpu-model`); if the server does not
-  report CUDA, fail the step with a message like "Speech recognition needs an NVIDIA graphics card with
-  CUDA (driver 528 or newer). No compatible GPU was found." Show it in the meeting's error in the UI.
-- VAD on the GPU: add `-ug` to `whisper-vad-speech-segments`.
-- YOLO (`OnnxYoloDetector`): backends `[CUDA]` only; without CUDA the video analysis and live camera show
-  the same clear error instead of running on the CPU. Keep the app itself starting, so meetings still record.
-- Screen encoding: `h264_nvenc` instead of `libopenh264` (check it on the RTX 5070; NVENC is always present
-  on NVIDIA GPUs that CUDA supports).
-- Update tests, `application.yml`, `README.md`, `packaging/README.txt` (NVIDIA GPU is now required) and the
-  spec (sections 3, 5.3, 8).
-- Test without CUDA by starting the app with `CUDA_VISIBLE_DEVICES=-1`: expect the clear error, no CPU work.
+  **Done** (commit "GPU only: ..." before stage 4): `GpuRequiredException` with one message per feature;
+  YOLO on CUDA only behind `ObjectDetectorProvider` (the app starts without it, video analysis and the live
+  camera answer 503 with the message, `GpuErrorHandler`); Whisper without the CPU model (`whisper.model`
+  replaces `gpu-model`/`cpu-model`/`device`), a meeting without CUDA fails with "Speech recognition needs an
+  NVIDIA graphics card ..."; screen and annotated video encoded by `h264_nvenc` (`-bf 0 -forced-idr 1`,
+  ddagrab frames go to NVENC without leaving video memory). Checked with `CUDA_VISIBLE_DEVICES=-1`.
+  What is still on the CPU: section 6.
 - The user wants the result to feel like **one recording**: record → stop → AI extracts the key
   information → Notion. Separate audio/video tracks are an internal detail.
 - Screen recording is required: important information is often shown on slides (often in English).
@@ -84,7 +77,7 @@ Stop  ─► parts joined: recording.mp4 (screen + AAC sound) and audio/mic.wav
 ### Speech recognition details (stage 3, option A chosen)
 - whisper.cpp build `b5454` (`whisper-bin-win-cuda-12.4.0-x64.zip`), installed by
   `packaging/get-whisper.ps1` into `tools/whisper` (exe + DLLs) and `models/whisper`
-  (`ggml-large-v3-turbo-q8_0.bin` for CUDA, `ggml-small-q8_0.bin` for CPU, `ggml-silero-v5.1.2.bin` VAD).
+  (`ggml-large-v3-turbo-q8_0.bin` on CUDA, `ggml-silero-v5.1.2.bin` VAD; an old `ggml-small-q8_0.bin` is unused).
   Both folders are gitignored. Without them processing skips the transcript with a warning.
 - Silero VAD (`whisper-vad-speech-segments.exe`) → `SpeechChunks.plan` (≤ 30 s pieces; a pause ≥ 2 s always
   splits, ≥ 0.8 s splits after 10 s) → `whisper-server` per piece with `language=auto`; if the detected
@@ -132,16 +125,20 @@ Plan to propose to the user:
   Also decide on the known gap below.
 
 ## 6. Known gaps and risks
-- Work still done on the CPU, to move to the GPU (see section 2):
-  - Silero VAD: `whisper-vad-speech-segments` runs without `-ug` (`WhisperCppTranscriber.detectSpeech`);
-  - Whisper CPU fallback: `whisper.device: auto` + `cpu-model` (small) in `WhisperCppTranscriber.startServer`;
-  - YOLO CPU backend: `visiontrack.model.backends: [CUDA, CPU]`;
-  - screen encoding with `libopenh264` (`ScreenCapture`) and `Ffmpeg.concat` — candidate: `h264_nvenc`
-    (present in the bundled ffmpeg); AAC encoding in `Ffmpeg.mux`;
+- Work still done on the CPU (see section 2):
+  - Silero VAD (`WhisperCppTranscriber.detectSpeech`): with `-ug` whisper.cpp b5454 (the newest Windows CUDA
+    build as of 2026-10-14) aborts with "pre-allocated tensor (leaf_0) in a buffer (CUDA0) that cannot run the
+    operation". It takes seconds per hour of audio. GPU option: Silero ONNX on the existing ONNX Runtime CUDA;
+    re-check newer whisper.cpp builds;
+  - AAC audio encoding in `Ffmpeg.mux` (no GPU audio encoder exists); gdigrab fallback capture itself;
+  - colour conversion of annotated video frames (`VideoWriter`, BGR to YUV before NVENC);
   - slide thumbnails and comparison in Java (`SlideChangeDetector`, `SlideExtractor`), video decoding in
     `VideoReader` (candidate: CUDA hardware decoding).
-- YOLO (`OnnxYoloDetector` bean) stays loaded on the GPU while Whisper runs; the spec says not both.
-  Fine on 12 GB; on a weak GPU Whisper falls back to the CPU. Consider lazy loading / unloading YOLO.
+- Without CUDA but with NVENC (e.g. `CUDA_VISIBLE_DEVICES=-1`) screen recording still works: NVENC takes
+  ddagrab frames through D3D11. On a PC without NVIDIA ffmpeg fails in `h264_nvenc`, and `MeetingRecorder`
+  turns that into "Screen recording needs an NVIDIA graphics card ..." (not testable on this PC).
+- YOLO (`ObjectDetectorProvider`) stays loaded on the GPU while Whisper runs; the spec says not both.
+  Fine on 12 GB; consider lazy loading / unloading YOLO for weaker GPUs.
 - Track offsets come from process start times; the screen starts ~1 s later than the mic
   (e.g. 317.0 s vs 317.85 s). Good enough for slides vs transcript; refine if lip-sync matters.
 - Slide detection is verified on generated presentations only; the user still has to try a real one.
@@ -155,7 +152,7 @@ Plan to propose to the user:
 - Maven is not on PATH: `"/c/Program Files/JetBrains/IntelliJ IDEA 2026.2.0.1/plugins/maven-plugin/lib/maven3/bin/mvn.cmd"`.
 - Run for checks: `java -jar target/visiontrack-object-detection-aws-1.0-SNAPSHOT.jar --server.port=18080
   --visiontrack.open-browser=false` (port 8080 may be busy). Stop it by the PID listening on the port.
-- CPU fallback test: start the app with `CUDA_VISIBLE_DEVICES=-1`.
+- No-GPU test: start the app with `CUDA_VISIBLE_DEVICES=-1`; expect the "NVIDIA graphics card" errors.
 - Test speech: Windows voices "Microsoft Irina Desktop" (ru) and "Microsoft David Desktop" (en) via
   `System.Speech`; build a 16 kHz mono WAV with the bundled ffmpeg.
 - A meeting can be processed without recording: create a folder with `meeting.json` (status `RECORDED`)

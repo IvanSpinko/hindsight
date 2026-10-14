@@ -1,6 +1,7 @@
 package org.example.visiontrack.meeting;
 
 import jakarta.annotation.PreDestroy;
+import org.example.visiontrack.GpuRequiredException;
 import org.example.visiontrack.config.VisionTrackProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -146,7 +148,12 @@ public class MeetingRecorder {
                 screenOk = screen.survives(DEVICE_OPEN_TIMEOUT);
             }
             if (!screenOk) {
-                throw new CaptureFailure("Screen capture could not start (" + screen.errorTail() + ")");
+                String error = screen.errorTail();
+                // The screen is encoded by NVENC: without an NVIDIA GPU ffmpeg fails in h264_nvenc or nvcuda.dll
+                if (error.toLowerCase(Locale.ROOT).matches("(?s).*(nvenc|nvcuda|cuda).*")) {
+                    throw new CaptureFailure(GpuRequiredException.message("Screen recording") + " (" + error + ")");
+                }
+                throw new CaptureFailure("Screen capture could not start (" + error + ")");
             }
 
             List<Meeting.Track> tracks = List.of(

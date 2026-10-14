@@ -32,7 +32,6 @@ if ($Force -or -not (Test-Path "$tools\whisper-server.exe")) {
 
 $files = @{
     "ggml-large-v3-turbo-q8_0.bin" = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin"
-    "ggml-small-q8_0.bin"          = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q8_0.bin"
     "ggml-silero-v5.1.2.bin"       = "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin"
 }
 foreach ($name in $files.Keys) {

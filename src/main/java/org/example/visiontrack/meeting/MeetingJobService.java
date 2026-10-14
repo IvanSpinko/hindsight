@@ -2,6 +2,7 @@ package org.example.visiontrack.meeting;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
+import org.example.visiontrack.GpuRequiredException;
 import org.example.visiontrack.analysis.ProgressListener;
 import org.example.visiontrack.config.VisionTrackProperties;
 import org.slf4j.Logger;
@@ -88,6 +89,9 @@ public class MeetingJobService {
             store.find(id).ifPresent(m -> store.save(m.ready(count, transcription)));
             log.info("Meeting {} processed: {} slides, {} speech segments", id, count,
                     transcription == null ? 0 : transcription.segments());
+        } catch (GpuRequiredException e) {
+            log.error("Meeting {}: {}", id, e.getMessage(), e.getCause());
+            store.find(id).ifPresent(m -> store.save(m.failed(e.getMessage())));
         } catch (Exception e) {
             log.error("Meeting {}: processing failed", id, e);
             String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();

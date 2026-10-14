@@ -697,6 +697,14 @@
       const blob = await new Promise(r => grab.toBlob(r, 'image/jpeg', 0.8));
       try {
         const res = await fetch('/api/live/detect', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
+        if (res.status === 503) {
+          // Detection cannot run on this computer (no NVIDIA GPU): say why and stop the camera
+          const problem = await res.json().catch(() => null);
+          stop();
+          $('cam-error').textContent = problem?.detail || 'Object detection is unavailable on this computer.';
+          $('cam-error').hidden = false;
+          return;
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const result = await res.json();
         if (!running) break;

@@ -11,6 +11,7 @@ import java.util.Locale;
 /**
  * Screen capture arguments. The primary method is {@code ddagrab} (Desktop Duplication API: cheap, captures
  * hardware-accelerated windows); {@code gdigrab} is the fallback for systems where it fails, e.g. some hybrid-GPU laptops.
+ * Video is encoded by NVENC on the NVIDIA GPU; ddagrab frames stay in video memory all the way to the encoder.
  */
 final class ScreenCapture {
 
@@ -19,8 +20,10 @@ final class ScreenCapture {
     // The mouse pointer is left out: it would only disturb slide detection
     // H.264 needs even sizes; a slow-changing screen at 1-2 fps compresses well, so a modest bitrate keeps text sharp
     private static final String EVEN_SIZE = "scale=trunc(iw/2)*2:trunc(ih/2)*2";
-    private static final List<String> ENCODER = List.of(
-            "-c:v", "libopenh264", "-pix_fmt", "yuv420p", "-b:v", "800k", "-g", "30");
+    // No B-frames: they shift the first timestamps of a part by seconds at 1 fps. Forced keyframes must be IDR
+    // frames, or the segment muxer cannot start a new part there.
+    static final List<String> ENCODER = List.of(
+            "-c:v", "h264_nvenc", "-bf", "0", "-forced-idr", "1", "-b:v", "800k", "-g", "30");
 
     private ScreenCapture() {}
 
@@ -29,7 +32,7 @@ final class ScreenCapture {
         String rate = String.format(Locale.ROOT, "%.3f", fps);
         if (method == Method.DDAGRAB) {
             args.addAll(List.of("-filter_complex",
-                    "ddagrab=output_idx=" + monitor + ":framerate=" + rate + ":draw_mouse=0,hwdownload,format=bgra," + EVEN_SIZE));
+                    "ddagrab=output_idx=" + monitor + ":framerate=" + rate + ":draw_mouse=0"));
         } else {
             args.addAll(List.of("-f", "gdigrab", "-framerate", rate, "-draw_mouse", "0"));
             Rectangle bounds = monitorBounds(monitor);

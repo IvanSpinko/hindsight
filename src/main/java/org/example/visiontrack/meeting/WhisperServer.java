@@ -67,15 +67,14 @@ final class WhisperServer implements AutoCloseable {
         this.json = json;
     }
 
-    static WhisperServer start(Path executable, Path model, boolean gpu, int threads, Path log, ObjectMapper json)
+    static WhisperServer start(Path executable, Path model, int threads, Path log, ObjectMapper json)
             throws IOException, InterruptedException {
         int port;
         try (ServerSocket socket = new ServerSocket(0)) {
             port = socket.getLocalPort();
         }
-        List<String> command = new ArrayList<>(List.of(executable.toString(), "-m", model.toString(),
-                "--host", "127.0.0.1", "--port", String.valueOf(port), "-t", String.valueOf(threads), "-l", "auto"));
-        if (!gpu) command.add("-ng");
+        List<String> command = List.of(executable.toString(), "-m", model.toString(),
+                "--host", "127.0.0.1", "--port", String.valueOf(port), "-t", String.valueOf(threads), "-l", "auto");
         Files.createDirectories(log.getParent());
         Process process = new ProcessBuilder(command)
                 .redirectErrorStream(true)

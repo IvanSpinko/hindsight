@@ -6,7 +6,6 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import org.example.visiontrack.detection.OnnxYoloDetector;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -28,7 +27,6 @@ public record VisionTrackProperties(
             Path classesPath,
             @DecimalMin("0.0") @DecimalMax("1.0") float confidenceThreshold,
             @DecimalMin("0.0") @DecimalMax("1.0") float nmsThreshold,
-            @NotEmpty List<OnnxYoloDetector.Backend> backends,
             List<Path> nativePreload,
             Path nativeDir
     ) {
@@ -75,18 +73,13 @@ public record VisionTrackProperties(
     ) {}
 
     /**
-     * Speech recognition with whisper.cpp: {@code directory} holds whisper-server.exe and its DLLs.
-     * The GPU model is used on CUDA, the CPU model when CUDA is unavailable ({@code device: cpu} forces it).
-     * {@code languages} are the ISO codes speech may be in; the first one is the fallback.
+     * Speech recognition with whisper.cpp on CUDA (no CPU fallback): {@code directory} holds whisper-server.exe
+     * and its DLLs. {@code languages} are the ISO codes speech may be in; the first one is the fallback.
      */
     public record Whisper(
             @NotNull Path directory,
-            @NotNull Path gpuModel,
-            @NotNull Path cpuModel,
+            @NotNull Path model,
             @NotNull Path vadModel,
-            @NotEmpty List<String> languages,
-            @NotNull Device device
-    ) {
-        public enum Device { AUTO, CPU }
-    }
+            @NotEmpty List<String> languages
+    ) {}
 }

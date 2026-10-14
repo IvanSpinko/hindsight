@@ -6,6 +6,7 @@ import ai.onnxruntime.OrtEnvironment;
 import ai.onnxruntime.OrtException;
 import ai.onnxruntime.OrtSession;
 import ai.onnxruntime.TensorInfo;
+import org.example.visiontrack.GpuRequiredException;
 import org.example.visiontrack.config.VisionTrackProperties;
 import org.example.visiontrack.detection.ImagePreprocessor.Letterbox;
 import org.slf4j.Logger;
@@ -24,21 +25,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+/** YOLO on ONNX Runtime with CUDA; there is no CPU fallback, see {@link GpuRequiredException}. */
 public final class OnnxYoloDetector implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(OnnxYoloDetector.class);
     private static final int MAX_DETECTIONS_PER_FRAME = 300;
 
-    public enum Backend {
-        CUDA,
-        DIRECTML,
-        CPU
-    }
-
     private final OrtEnvironment env;
     private final OrtSession session;
     private final OrtSession.SessionOptions options;
-    private final Backend backend;
     private final String modelName;
     private final String inputName;
     private final int inputWidth;
@@ -51,12 +46,11 @@ public final class OnnxYoloDetector implements AutoCloseable {
     private final ThreadLocal<float[]> inputBuffers;
 
     private OnnxYoloDetector(OrtEnvironment env, OrtSession session, OrtSession.SessionOptions options,
-                             Backend backend, String modelName,
+                             String modelName,
                              Path labelsFile, float confidenceThreshold, float nmsThreshold) throws OrtException {
         this.env = env;
         this.session = session;
         this.options = options;
-        this.backend = backend;
         this.modelName = modelName;
         this.confidenceThreshold = confidenceThreshold;
         this.nmsThreshold = nmsThreshold;
@@ -88,22 +82,20 @@ public final class OnnxYoloDetector implements AutoCloseable {
         preloadNativeLibraries(config.nativeDir(), config.nativePreload());
 
         OrtEnvironment env = OrtEnvironment.getEnvironment();
-        for (Backend backend : config.backends()) {
-            OrtSession.SessionOptions options = new OrtSession.SessionOptions();
-            try {
-                configure(options, backend);
-                OrtSession session = env.createSession(modelPath.toString(), options);
-                OnnxYoloDetector detector = new OnnxYoloDetector(env, session, options, backend,
-                        modelPath.getFileName().toString(), config.classesPath(),
-                        config.confidenceThreshold(), config.nmsThreshold());
-                log.info("Loaded {}", detector.description());
-                return detector;
-            } catch (OrtException | RuntimeException e) {
-                options.close();
-                log.info("Inference backend {} unavailable: {}", backend, e.getMessage());
-            }
+        OrtSession.SessionOptions options = new OrtSession.SessionOptions();
+        OrtSession session;
+        try {
+            options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT);
+            options.addCUDA(0);
+            session = env.createSession(modelPath.toString(), options);
+        } catch (OrtException | RuntimeException e) {
+            options.close();
+            throw new GpuRequiredException("Object detection", e);
         }
-        throw new IllegalStateException("No inference backend could load " + modelPath + "; tried " + config.backends());
+        OnnxYoloDetector detector = new OnnxYoloDetector(env, session, options, modelPath.getFileName().toString(),
+                config.classesPath(), config.confidenceThreshold(), config.nmsThreshold());
+        log.info("Loaded {}", detector.description());
+        return detector;
     }
 
     private static void preloadNativeLibraries(Path nativeDir, List<Path> libraries) {
@@ -141,15 +133,6 @@ public final class OnnxYoloDetector implements AutoCloseable {
         pending.forEach(library -> log.warn("Could not pre-load {}", library));
     }
 
-    private static void configure(OrtSession.SessionOptions options, Backend backend) throws OrtException {
-        options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT);
-        switch (backend) {
-            case CUDA -> options.addCUDA(0);
-            case DIRECTML -> options.addDirectML(0);
-            case CPU -> options.setIntraOpNumThreads(Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
-        }
-    }
-
     public List<Detection> detect(RgbImage image) {
         Letterbox letterbox = Letterbox.fit(image.width(), image.height(), inputWidth, inputHeight);
         float[] input = inputBuffers.get();
@@ -169,7 +152,7 @@ public final class OnnxYoloDetector implements AutoCloseable {
     }
 
     public String description() {
-        return "%s (%dx%d, %d classes) on %s".formatted(modelName, inputWidth, inputHeight, labels.size(), backend);
+        return "%s (%dx%d, %d classes) on CUDA".formatted(modelName, inputWidth, inputHeight, labels.size());
     }
 
     @Override
