@@ -34,8 +34,22 @@ Goal for the next session: **stage 4 (notes via Claude + Markdown)**, then stage
   check in the running app → commit → `git push`.
 - GPU (CUDA) must keep working.
 - **Everything on the GPU, no CPU processing** (user request, 2026-10-14). This overrides the spec's
-  "automatic fallback to CPU" (sections 3 and 5.3). Ask the user how a PC without CUDA should behave
-  (clear error vs. fallback) before changing the fallback code. See the CPU list in section 6.
+  "automatic fallback to CPU" (sections 3 and 5.3). **Decided for now:** without CUDA the app shows a
+  clear error that an NVIDIA GPU is required (driver hint included) and does not fall back to the CPU.
+  Not implemented yet: do it first in the next session (see "Next task" below). CPU work list in section 6.
+
+### Next task (before stage 4): GPU only, clear error without CUDA
+- `WhisperCppTranscriber.startServer`: drop the CPU fallback (`device`, `cpu-model`); if the server does not
+  report CUDA, fail the step with a message like "Speech recognition needs an NVIDIA graphics card with
+  CUDA (driver 528 or newer). No compatible GPU was found." Show it in the meeting's error in the UI.
+- VAD on the GPU: add `-ug` to `whisper-vad-speech-segments`.
+- YOLO (`OnnxYoloDetector`): backends `[CUDA]` only; without CUDA the video analysis and live camera show
+  the same clear error instead of running on the CPU. Keep the app itself starting, so meetings still record.
+- Screen encoding: `h264_nvenc` instead of `libopenh264` (check it on the RTX 5070; NVENC is always present
+  on NVIDIA GPUs that CUDA supports).
+- Update tests, `application.yml`, `README.md`, `packaging/README.txt` (NVIDIA GPU is now required) and the
+  spec (sections 3, 5.3, 8).
+- Test without CUDA by starting the app with `CUDA_VISIBLE_DEVICES=-1`: expect the clear error, no CPU work.
 - The user wants the result to feel like **one recording**: record → stop → AI extracts the key
   information → Notion. Separate audio/video tracks are an internal detail.
 - Screen recording is required: important information is often shown on slides (often in English).

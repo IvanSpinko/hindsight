@@ -20,7 +20,9 @@ produces **structured meeting notes**: a local Markdown file and, optionally, a 
 
 **In scope:**
 - local use only, on the user's PC running Windows 10/11 x64;
-- **GPU (NVIDIA CUDA) is required**, with automatic fallback to CPU if CUDA is unavailable;
+- **GPU (NVIDIA CUDA) is required** for all heavy processing. Without CUDA the app shows a clear error
+  that an NVIDIA graphics card is required; there is no CPU fallback (decision of 2026-10-14, replaces the
+  original "automatic fallback to CPU" here and in 5.3);
 - the app can be given to a friend as an archive: their keys and data are separate, mine are never shared.
 
 **Out of scope:** server, accounts, AWS, payments, installer signing, macOS/Linux desktop,
