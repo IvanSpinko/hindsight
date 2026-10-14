@@ -60,12 +60,16 @@ public record VisionTrackProperties(
     /**
      * Meeting recording. {@code ffmpegDir} overrides the ffmpeg bundled with JavaCV (a folder with
      * ffmpeg.exe and ffprobe.exe); {@code maxRecordingMinutes} also stops captures orphaned by a crash.
+     * A slide is kept once the screen stays still for {@code slideStableSeconds} and at least
+     * {@code slideMinChangedShare} of it differs from the previous slide.
      */
     public record Meetings(
             @NotNull Path directory,
             @DecimalMin("0.1") @DecimalMax("5.0") double screenFps,
             @Min(10) int segmentSeconds,
             @Min(1) int maxRecordingMinutes,
-            Path ffmpegDir
+            Path ffmpegDir,
+            @DecimalMin("0.5") double slideStableSeconds,
+            @DecimalMin("0.001") @DecimalMax("1.0") double slideMinChangedShare
     ) {}
 }

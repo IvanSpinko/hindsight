@@ -16,7 +16,7 @@ class CaptureArgsTest {
         List<String> args = ScreenCapture.args(ScreenCapture.Method.DDAGRAB, 1, 1.0, DIR, 300, 3600);
 
         String filter = args.get(args.indexOf("-filter_complex") + 1);
-        assertThat(filter).startsWith("ddagrab=output_idx=1:framerate=1.000,hwdownload,format=bgra");
+        assertThat(filter).startsWith("ddagrab=output_idx=1:framerate=1.000:draw_mouse=0,hwdownload,format=bgra");
         assertThat(args).containsSubsequence("-t", "3600")
                 .containsSubsequence("-f", "segment", "-segment_time", "300", "-segment_format", "matroska")
                 .contains("libopenh264")
@@ -28,7 +28,7 @@ class CaptureArgsTest {
     void gdigrabFallbackGrabsTheDesktop() {
         List<String> args = ScreenCapture.args(ScreenCapture.Method.GDIGRAB, 0, 0.5, DIR, 300, 3600);
 
-        assertThat(args).containsSubsequence("-f", "gdigrab", "-framerate", "0.500")
+        assertThat(args).containsSubsequence("-f", "gdigrab", "-framerate", "0.500", "-draw_mouse", "0")
                 .containsSubsequence("-i", "desktop")
                 .doesNotContain("-filter_complex");
     }

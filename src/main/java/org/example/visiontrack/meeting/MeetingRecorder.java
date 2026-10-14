@@ -33,8 +33,9 @@ import java.util.stream.Stream;
 
 /**
  * Records one meeting at a time: the screen and the microphone, each in its own ffmpeg process writing
- * segments, so a crash loses at most the unfinished end of a segment. On stop the segments are joined into
- * {@code video/screen.mp4} and {@code audio/mic.wav}. Nothing is analysed while recording, to keep the
+ * segments, so a crash loses at most the unfinished end of a segment. On stop the segments become one
+ * {@code recording.mp4} (screen and sound, for watching) plus {@code audio/mic.wav} for speech recognition,
+ * and the meeting is handed to {@link MeetingJobService}. Nothing is analysed while recording, to keep the
  * meeting itself smooth.
  */
 @Service
@@ -44,6 +45,7 @@ public class MeetingRecorder {
 
     static final String SCREEN = "screen";
     static final String MIC = "mic";
+    static final String RECORDING_FILE = "recording.mp4";
 
     private static final Logger log = LoggerFactory.getLogger(MeetingRecorder.class);
     private static final Duration DEVICE_OPEN_TIMEOUT = Duration.ofMillis(2500);
@@ -54,14 +56,17 @@ public class MeetingRecorder {
     private final MeetingStore store;
     private final VisionTrackProperties.Meetings settings;
     private final ApplicationEventPublisher events;
+    private final MeetingJobService jobs;
     private final ScheduledExecutorService watchdog;
 
     private volatile Ffmpeg ffmpeg;
     private volatile CaptureDevices devices;
     private volatile Active active;
 
-    public MeetingRecorder(MeetingStore store, VisionTrackProperties properties, ApplicationEventPublisher events) {
+    public MeetingRecorder(MeetingStore store, VisionTrackProperties properties, ApplicationEventPublisher events,
+                           MeetingJobService jobs) {
         this.store = store;
+        this.jobs = jobs;
         this.settings = properties.meetings();
         this.events = events;
         this.watchdog = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -72,7 +77,7 @@ public class MeetingRecorder {
         watchdog.scheduleWithFixedDelay(this::checkCaptures, 2, 2, TimeUnit.SECONDS);
     }
 
-    private Ffmpeg ffmpeg() {
+    Ffmpeg ffmpeg() {
         Ffmpeg current = ffmpeg;
         if (current == null) {
             synchronized (this) {
@@ -241,6 +246,7 @@ public class MeetingRecorder {
                 problems.add("Could not join the " + track.kind() + " parts (kept in the folder): " + e.getMessage());
             }
         }
+        tracks = combineIntoRecording(meeting.id(), folder, tracks, problems);
         Meeting result;
         if (tracks.isEmpty()) {
             result = meeting.failed(String.join("; ", problems));
@@ -251,7 +257,31 @@ public class MeetingRecorder {
         store.save(result);
         log.info("Meeting {} {}: {}", result.id(), result.status().name().toLowerCase(),
                 result.tracks().stream().map(t -> "%s %.0f s".formatted(t.kind(), t.durationSeconds())).toList());
+        if (result.status() == Meeting.Status.RECORDED) jobs.submit(result.id());
         return result;
+    }
+
+    /**
+     * Replaces the joined screen video with {@code recording.mp4} that also carries the microphone, so the
+     * user gets one file to watch. {@code audio/mic.wav} stays for speech recognition.
+     */
+    private List<Meeting.Track> combineIntoRecording(String id, Path folder, List<Meeting.Track> tracks, List<String> problems) {
+        Meeting.Track screen = tracks.stream().filter(t -> t.kind().equals(SCREEN)).findFirst().orElse(null);
+        if (screen == null) return tracks;
+        Meeting.Track mic = tracks.stream().filter(t -> t.kind().equals(MIC)).findFirst().orElse(null);
+        Path video = folder.resolve(screen.file());
+        try {
+            double offset = mic == null ? 0 : (mic.startOffsetMillis() - screen.startOffsetMillis()) / 1000.0;
+            ffmpeg().mux(video, mic == null ? null : folder.resolve(mic.file()), offset, folder.resolve(RECORDING_FILE));
+            deleteQuietly(video.getParent());
+            return tracks.stream()
+                    .map(t -> t == screen ? new Meeting.Track(SCREEN, RECORDING_FILE, t.startOffsetMillis(), t.durationSeconds()) : t)
+                    .toList();
+        } catch (IOException e) {
+            log.warn("Meeting {}: cannot create {}: {}", id, RECORDING_FILE, e.getMessage());
+            problems.add("Could not combine screen and sound into " + RECORDING_FILE + "; the separate files are kept");
+            return tracks;
+        }
     }
 
     /** Kills ffmpeg captures left running by a crashed app, so their parts are complete before joining. */

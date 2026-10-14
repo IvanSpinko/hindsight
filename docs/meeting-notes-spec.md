@@ -40,7 +40,10 @@ AMD/DirectML, live transcript during the meeting (that is the next version).
 - **Microphone:** FFmpeg `dshow`.
 - **System audio (other participants):** WASAPI loopback. FFmpeg cannot do this, so a small
   native helper (`audio-loopback.exe`, C++) is needed that writes PCM to stdout or to a file.
-- Audio tracks are recorded separately (`mic.wav`, `system.wav`, 16 kHz mono) on a shared timeline.
+- Audio tracks are captured separately (`mic.wav`, `system.wav`, 16 kHz mono) on a shared timeline, so the
+  transcript can tell "Me" from "Other participant(s)". This is internal: for the user a meeting is **one
+  recording** — after "Stop" the screen and sound are combined into a single `recording.mp4` for watching,
+  and the separate tracks are used only for speech recognition (and deleted afterwards, see 5.6).
 - Recording cannot start without an explicit user action. Before the first recording, a warning
   is shown that participants must consent to being recorded.
 
@@ -68,7 +71,8 @@ AMD/DirectML, live transcript during the meeting (that is the next version).
 
 ### 5.5 Export
 - **Markdown (always):** `Documents\VisionTrack\Meetings\YYYY-MM-DD_HH-MM_<title>\`
-  - `notes.md`, `transcript.md`, `notes.json`, `slides\`, `audio\` (audio is deleted depending on a setting).
+  - `recording.mp4` (screen + sound), `notes.md`, `transcript.md`, `notes.json`, `slides\` + `slides.json`,
+    `audio\` (speech recognition input, deleted depending on a setting).
 - **Notion (if configured):**
   - "Meetings" database: Name (title), Date (date), Duration min (number), Project (select),
     Tags (multi-select), Participants (multi-select), Type (select), Export status;

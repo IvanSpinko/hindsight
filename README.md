@@ -29,14 +29,18 @@ Open http://localhost:8080, drop in a video and wait for the results. Settings l
 |--------|-----------------------------------|-----------------------------------------------------------|
 | GET    | `/api/meetings/devices`           | monitors and microphones (`?refresh=true` probes again)   |
 | POST   | `/api/meetings/start`             | `{"title", "monitor", "microphone"}` → starts recording   |
-| POST   | `/api/meetings/{id}/stop`         | stops and joins the parts into `video/screen.mp4`, `audio/mic.wav` |
+| POST   | `/api/meetings/{id}/stop`         | stops, builds `recording.mp4` (screen + sound) and starts processing |
 | GET    | `/api/meetings`, `/api/meetings/{id}` | recorded meetings (read from their folders)           |
+| POST   | `/api/meetings/{id}/process`      | runs the processing again                                 |
+| GET    | `/api/meetings/{id}/slides`       | slides with times; images at `/api/meetings/{id}/slides/slide-NN.png` |
 | POST   | `/api/meetings/{id}/open-folder`  | opens the meeting folder in Explorer                      |
 
 Recordings go to `Documents\VisionTrack\Meetings\<date>_<time>_<title>\`. The screen (ffmpeg `ddagrab`,
 falling back to `gdigrab`, 1 fps) and the microphone (`dshow`, 16 kHz mono) are captured by the ffmpeg
 bundled with JavaCV in separate processes, written in 5-minute parts, so a crash keeps what was recorded;
-unfinished meetings are joined on the next start.
+unfinished meetings are joined on the next start. After "Stop" the meeting is processed in the background
+(`RECORDED → PROCESSING → READY`): `SlideChangeDetector` keeps every slide that stays on screen for 2 s,
+ignoring participant webcams, transitions and bullet-by-bullet builds, and saves `slides/slide-NN.png`.
 
 ```bash
 curl -F "file=@street.mp4" http://localhost:8080/api/analyses

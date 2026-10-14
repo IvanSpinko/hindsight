@@ -3,8 +3,12 @@ package org.example.visiontrack.web;
 import jakarta.servlet.http.HttpServletRequest;
 import org.example.visiontrack.meeting.CaptureDevices;
 import org.example.visiontrack.meeting.Meeting;
+import org.example.visiontrack.meeting.MeetingJobService;
 import org.example.visiontrack.meeting.MeetingRecorder;
 import org.example.visiontrack.meeting.MeetingStore;
+import org.example.visiontrack.meeting.SlideExtractor;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -33,10 +37,12 @@ public class MeetingController {
 
     private final MeetingRecorder recorder;
     private final MeetingStore store;
+    private final MeetingJobService jobs;
 
-    public MeetingController(MeetingRecorder recorder, MeetingStore store) {
+    public MeetingController(MeetingRecorder recorder, MeetingStore store, MeetingJobService jobs) {
         this.recorder = recorder;
         this.store = store;
+        this.jobs = jobs;
     }
 
     /** Screen and microphone recording is only ever controlled from this computer. */
@@ -75,6 +81,30 @@ public class MeetingController {
     @GetMapping("/{id}")
     public ResponseEntity<MeetingResponse> get(@PathVariable("id") String id) {
         return store.find(id).map(m -> ResponseEntity.ok(response(m))).orElse(ResponseEntity.notFound().build());
+    }
+
+    /** Runs the processing (slides, ...) again, e.g. after it failed or with new settings. */
+    @PostMapping("/{id}/process")
+    public ResponseEntity<MeetingResponse> process(@PathVariable("id") String id) {
+        Meeting meeting = store.find(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found"));
+        if (meeting.status() == Meeting.Status.RECORDING) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The meeting is still being recorded");
+        }
+        jobs.submit(id);
+        return ResponseEntity.accepted().body(response(store.find(id).orElseThrow()));
+    }
+
+    @GetMapping("/{id}/slides")
+    public List<SlideExtractor.Slide> slides(@PathVariable("id") String id) throws IOException {
+        if (store.folder(id).isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found");
+        return jobs.slides(id);
+    }
+
+    @GetMapping("/{id}/slides/{file:slide-\\d+\\.png}")
+    public ResponseEntity<Resource> slideImage(@PathVariable("id") String id, @PathVariable("file") String file) {
+        Path image = store.folder(id).map(f -> f.resolve("slides").resolve(file)).filter(Files::isRegularFile)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Slide not found"));
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(new FileSystemResource(image));
     }
 
     /** Opens the meeting folder in Explorer. */

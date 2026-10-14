@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -87,6 +88,23 @@ public final class Ffmpeg {
             }
         } finally {
             Files.deleteIfExists(list);
+        }
+    }
+
+    /**
+     * Puts a video and an audio track into one MP4 for playback: the video is copied, the audio becomes AAC.
+     * {@code audioOffsetSeconds} delays (or, if negative, advances) the audio to line it up with the video.
+     */
+    public void mux(Path video, Path audio, double audioOffsetSeconds, Path output) throws IOException {
+        List<String> args = new ArrayList<>(List.of("-hide_banner", "-loglevel", "error", "-y", "-i", video.toString()));
+        if (audio != null) {
+            args.addAll(List.of("-itsoffset", String.format(Locale.ROOT, "%.3f", audioOffsetSeconds), "-i", audio.toString(),
+                    "-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "96k"));
+        }
+        args.addAll(List.of("-c:v", "copy", "-movflags", "+faststart", output.toString()));
+        Result result = run(args, Duration.ofMinutes(30));
+        if (result.exitCode() != 0 || !Files.isRegularFile(output)) {
+            throw new IOException("Cannot create " + output.getFileName() + ": " + result.output().strip());
         }
     }
 

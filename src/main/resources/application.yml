@@ -60,3 +60,7 @@ visiontrack:
     # Recording is written in parts of this length, so a crash loses at most the unfinished part
     segment-seconds: 300
     max-recording-minutes: 360
+    # Slides: the screen must stay still this long (animations and transitions are skipped)...
+    slide-stable-seconds: 2
+    # ...and this share of it must differ from the previous slide (ignores cursors, clocks, small popups)
+    slide-min-changed-share: 0.03

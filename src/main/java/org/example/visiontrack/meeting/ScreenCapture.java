@@ -16,6 +16,7 @@ final class ScreenCapture {
 
     enum Method { DDAGRAB, GDIGRAB }
 
+    // The mouse pointer is left out: it would only disturb slide detection
     // H.264 needs even sizes; a slow-changing screen at 1-2 fps compresses well, so a modest bitrate keeps text sharp
     private static final String EVEN_SIZE = "scale=trunc(iw/2)*2:trunc(ih/2)*2";
     private static final List<String> ENCODER = List.of(
@@ -28,9 +29,9 @@ final class ScreenCapture {
         String rate = String.format(Locale.ROOT, "%.3f", fps);
         if (method == Method.DDAGRAB) {
             args.addAll(List.of("-filter_complex",
-                    "ddagrab=output_idx=" + monitor + ":framerate=" + rate + ",hwdownload,format=bgra," + EVEN_SIZE));
+                    "ddagrab=output_idx=" + monitor + ":framerate=" + rate + ":draw_mouse=0,hwdownload,format=bgra," + EVEN_SIZE));
         } else {
-            args.addAll(List.of("-f", "gdigrab", "-framerate", rate));
+            args.addAll(List.of("-f", "gdigrab", "-framerate", rate, "-draw_mouse", "0"));
             Rectangle bounds = monitorBounds(monitor);
             if (bounds != null) {
                 args.addAll(List.of("-offset_x", String.valueOf(bounds.x), "-offset_y", String.valueOf(bounds.y),
