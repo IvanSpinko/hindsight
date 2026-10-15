@@ -4,99 +4,134 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VisionTrack</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='2' y='2' width='60' height='60' rx='14' fill='%232563eb'/%3E%3Cpath d='M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39' fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='2' y='2' width='60' height='60' rx='16' fill='%23b65a37'/%3E%3Cpath d='M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39' fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23fff'/%3E%3C/svg%3E">
 <script>
   // Apply the saved theme before the page is drawn, so it does not flash in the other one
   try { const t = localStorage.getItem('visiontrack.theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
 </script>
 <style>
+  /* Sand and terracotta: warm sandy neutrals, a terracotta accent and earthy status colours */
   :root {
-    --bg: #f7f7f8; --surface: #ffffff; --border: #e6e6e9; --border-strong: #d4d4d8; --text: #18181b; --muted: #71717a;
-    --accent: #2563eb; --accent-soft: #eff4ff; --error: #b91c1c; --error-soft: #fef2f2;
-    --warn: #92400e; --warn-soft: #fffbeb; --ok: #166534; --ok-soft: #dcfce7; color-scheme: light; --shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 1px 8px rgba(0, 0, 0, .03);
+    --bg: #f6f1ea; --surface: #fffdf9; --raised: #faf5ee; --border: #e8dfd3; --border-strong: #d6c8b7;
+    --text: #2b2420; --muted: #7a6c60; --accent: #b65a37; --accent-strong: #9f4c2c; --accent-soft: #f6e6dc; --on-accent: #ffffff;
+    --error: #a83a35; --error-soft: #f6e1de; --warn: #85601d; --warn-soft: #f6ecd6; --ok: #5b7646; --ok-soft: #e8eedc;
+    --rec: #cf4636; --shadow: 0 1px 2px rgba(70, 45, 20, .05), 0 2px 12px rgba(70, 45, 20, .05);
+    --menu-shadow: 0 8px 28px rgba(70, 45, 20, .16); color-scheme: light;
   }
   /* Dark theme: follows the system unless the header button picked one (data-theme on <html>, kept in localStorage) */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #111113; --surface: #1a1a1d; --border: #2e2e33; --border-strong: #3f3f46; --text: #ececef; --muted: #a1a1aa;
-      --accent: #6d9bff; --accent-soft: #1c2640; --error: #fca5a5; --error-soft: #3b1d1d;
-      --warn: #fcd34d; --warn-soft: #3a2a10; --shadow: none;
-      --ok: #86efac; --ok-soft: #14321f; color-scheme: dark;
+      --bg: #1c1814; --surface: #242019; --raised: #2b261f; --border: #3a322a; --border-strong: #4b4136;
+      --text: #efe7dd; --muted: #a8998a; --accent: #e08a64; --accent-strong: #eb9d7a; --accent-soft: #3b281e; --on-accent: #1c1814;
+      --error: #f0a093; --error-soft: #3d2420; --warn: #e2c27c; --warn-soft: #352a17; --ok: #a9c48f; --ok-soft: #26301d;
+      --rec: #f07a66; --shadow: none; --menu-shadow: 0 10px 32px rgba(0, 0, 0, .5); color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #111113; --surface: #1a1a1d; --border: #2e2e33; --border-strong: #3f3f46; --text: #ececef; --muted: #a1a1aa;
-    --accent: #6d9bff; --accent-soft: #1c2640; --error: #fca5a5; --error-soft: #3b1d1d;
-    --warn: #fcd34d; --warn-soft: #3a2a10; --shadow: none;
-    --ok: #86efac; --ok-soft: #14321f; color-scheme: dark;
+    --bg: #1c1814; --surface: #242019; --raised: #2b261f; --border: #3a322a; --border-strong: #4b4136;
+    --text: #efe7dd; --muted: #a8998a; --accent: #e08a64; --accent-strong: #eb9d7a; --accent-soft: #3b281e; --on-accent: #1c1814;
+    --error: #f0a093; --error-soft: #3d2420; --warn: #e2c27c; --warn-soft: #352a17; --ok: #a9c48f; --ok-soft: #26301d;
+    --rec: #f07a66; --shadow: none; --menu-shadow: 0 10px 32px rgba(0, 0, 0, .5); color-scheme: dark;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
-  main { max-width: 880px; margin: 0 auto; padding: 40px 16px 64px; }
-  header { margin-bottom: 24px; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
+  body.wide main { max-width: 1240px; }
+  [hidden] { display: none !important; }
+
+  /* header: logo, mode tabs and the theme button in one bar */
+  header { margin-bottom: 20px; }
+  .bar { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; }
   .brand { display: flex; align-items: center; gap: 10px; }
-  .brand h1 { flex: 1; }
-  #theme-toggle { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border-radius: 10px; }
+  .brand svg { width: 30px; height: 30px; flex: none; }
+  .brand h1 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
+  .bar .spacer { flex: 1; }
+  #theme-toggle { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border-radius: 10px; }
   #theme-toggle svg { width: 18px; height: 18px; }
-  .brand svg { width: 32px; height: 32px; flex: none; }
-  header h1 { margin: 0; font-size: 24px; letter-spacing: -.01em; }
-  header p { margin: 4px 0 0; color: var(--muted); }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  #subtitle { margin: 10px 0 0; color: var(--muted); font-size: 15px; }
+  @media (max-width: 640px) { .bar .tabs { order: 3; width: 100%; } .bar .tabs .tab { flex: 1; } }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
   h2 { margin: 0 0 12px; font-size: 16px; }
   .muted { color: var(--muted); font-size: 14px; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .card-head h2 { margin: 0; }
+
+  /* buttons */
+  button, a.button {
+    font: inherit; font-size: 15px; font-weight: 600; border: 1px solid transparent; border-radius: 9px;
+    padding: 8px 16px; cursor: pointer; background: var(--accent); color: var(--on-accent); text-decoration: none;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  button:not(:disabled):hover, a.button:hover { background: var(--accent-strong); }
+  button.secondary, a.button.secondary { background: transparent; color: var(--text); border-color: var(--border); font-weight: 500; }
+  button.secondary:not(:disabled):hover, a.button.secondary:hover { background: var(--raised); border-color: var(--border-strong); }
+  button.small, a.button.small { font-size: 13px; padding: 4px 12px; border-radius: 8px; }
+  button.wide { width: 100%; padding: 10px 16px; }
+  button.icon { background: transparent; color: var(--muted); border: 1px solid var(--border); width: 32px; height: 32px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; }
+  button.icon:not(:disabled):hover { background: var(--raised); color: var(--text); border-color: var(--border-strong); }
+  button.icon svg { width: 16px; height: 16px; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .link { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); font-weight: 500; cursor: pointer; text-decoration: none; }
+  .link:hover, button.link:not(:disabled):hover { background: none; text-decoration: underline; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row.spread { justify-content: space-between; }
+
+  /* "..." and "Download" menus */
+  .menu { position: relative; display: inline-flex; }
+  .menu > button.icon { width: 30px; height: 30px; border-color: transparent; }
+  .menu.open > button.icon { background: var(--raised); border-color: var(--border); color: var(--text); }
+  .menu > button.secondary { display: inline-flex; align-items: center; gap: 6px; }
+  .menu > button svg { width: 15px; height: 15px; }
+  .menu-pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 190px; padding: 6px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--menu-shadow); }
+  .menu-pop button, .menu-pop a { display: block; width: 100%; text-align: left; background: none; color: var(--text); border: 0;
+    border-radius: 8px; padding: 7px 10px; font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap; }
+  .menu-pop button:not(:disabled):hover, .menu-pop a:hover { background: var(--raised); }
+  .menu-pop .danger { color: var(--error); }
+  .menu-pop .danger:not(:disabled):hover { background: var(--error-soft); }
+  .menu-pop hr { border: 0; border-top: 1px solid var(--border); margin: 5px 4px; }
 
   /* upload */
   #drop, #m-drop {
-    display: block; border: 2px dashed var(--border); border-radius: 10px; padding: 28px 16px; text-align: center;
-    cursor: pointer; transition: border-color .15s, background .15s;
+    display: block; border: 2px dashed var(--border-strong); border-radius: 12px; padding: 32px 16px; text-align: center;
+    cursor: pointer; transition: border-color .15s, background .15s; background: var(--raised);
   }
   #drop.over, #drop:hover, #m-drop.over, #m-drop:hover { border-color: var(--accent); background: var(--accent-soft); }
   #drop strong, #m-drop strong { display: block; }
-  #file-name { margin-top: 8px; font-weight: 600; word-break: break-all; }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .row.spread { justify-content: space-between; }
-  #upload-card .row { margin-top: 16px; }
-  button, a.button {
-    font: inherit; font-size: 15px; font-weight: 600; border: 1px solid transparent; border-radius: 8px;
-    padding: 8px 16px; cursor: pointer; background: var(--accent); color: #fff; text-decoration: none;
-  }
-  button.secondary, a.button.secondary { background: transparent; color: var(--text); border-color: var(--border); font-weight: 500; }
-  button, a.button { transition: filter .15s, background .15s, border-color .15s; }
-  button:not(:disabled):hover, a.button:hover { filter: brightness(1.08); }
-  button.secondary:not(:disabled):hover, a.button.secondary:hover { filter: none; background: var(--bg); border-color: var(--border-strong); }
-  button.small, a.button.small { font-size: 13px; padding: 4px 12px; border-radius: 7px; }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  #drop[hidden] + .row { margin-top: 0; }
-  .link { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); font-weight: 500; cursor: pointer; text-decoration: none; }
-  .link:hover { text-decoration: underline; filter: none !important; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-
+  .drop-icon { width: 34px; height: 34px; color: var(--accent); margin-bottom: 6px; }
+  #m-drop { padding: 22px 16px; }
+  #file-name { font-weight: 600; word-break: break-all; }
+  #file-name:empty { display: none; }
   .progress { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; margin: 16px 0 6px; }
-  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
-  .error { background: var(--error-soft); color: var(--error); padding: 10px 14px; border-radius: 8px; margin-top: 12px; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .3s; }
+  .error { background: var(--error-soft); color: var(--error); padding: 10px 14px; border-radius: 10px; margin-top: 12px; font-size: 14px; }
 
   /* summary */
-  .result-head { display: flex; justify-content: space-between; align-items: center; gap: 6px 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .result-head { display: flex; justify-content: space-between; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 16px; }
   .result-head h2 { margin: 0; font-size: 18px; word-break: break-word; }
+  .result-head .row { gap: 8px; }
   .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-  .tile { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--bg); }
+  .tile { border-radius: 12px; padding: 12px 14px; background: var(--raised); border: 1px solid var(--border); }
   .tile .v { font-size: 22px; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums; }
   .tile .l { font-size: 13px; color: var(--muted); }
   @media (max-width: 600px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  .cloud { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: 99px; white-space: nowrap; }
+  .cloud { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
   .cloud svg { width: 15px; height: 15px; flex: none; }
   .cloud.uploaded { background: var(--ok-soft); color: var(--ok); }
   .cloud.pending { background: var(--accent-soft); color: var(--accent); }
   .cloud.retrying { background: var(--warn-soft); color: var(--warn); }
-  details { margin-top: 8px; }
+  details { margin-top: 10px; }
   summary { cursor: pointer; color: var(--muted); font-size: 14px; }
   details p { margin: 6px 0 0; }
 
   /* video */
-  .stage { position: relative; background: #000; border-radius: 8px; overflow: hidden; }
+  .stage { position: relative; background: #000; border-radius: 10px; overflow: hidden; }
   .stage video { display: block; width: 100%; max-height: 65vh; background: #000; }
   .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   #video-card .row { margin-top: 10px; }
@@ -109,8 +144,9 @@
   .tl-axis span:first-child { transform: none; }
   .tl-axis span:last-child { transform: translateX(-100%); }
   .tl-label { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap; background: none; border: 0; padding: 0; color: var(--text); font-weight: 500; }
+  .tl-label:not(:disabled):hover { background: none; text-decoration: underline; }
   .tl-label .n { color: var(--muted); font-weight: 400; }
-  .tl-lane { position: relative; height: 20px; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
+  .tl-lane { position: relative; height: 20px; background: var(--raised); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
   .tl-lane.seekable { cursor: pointer; }
   .tl-seg { position: absolute; top: 3px; bottom: 3px; min-width: 3px; border-radius: 3px; opacity: .85; }
   .tl-lane:hover .tl-seg { opacity: 1; }
@@ -122,73 +158,106 @@
   .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .chip {
     display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 99px;
-    padding: 4px 12px; background: transparent; color: var(--text); font-weight: 500; font-size: 14px;
+    padding: 4px 12px; background: transparent; color: var(--text); font-weight: 500; font-size: 14px; cursor: pointer;
   }
+  span.chip { cursor: default; }
   .chip .n { color: var(--muted); }
-  .chip.active { border-color: var(--accent); background: var(--accent-soft); }
+  .chip.active, .chip.active:not(:disabled):hover { border-color: var(--accent); background: var(--accent-soft); }
+  button.chip:not(.active):not(:disabled):hover { background: var(--raised); border-color: var(--border-strong); }
   .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; display: inline-block; }
-
   .table-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 15px; }
   th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   th { color: var(--muted); font-weight: 500; font-size: 13px; }
   tr:last-child td { border-bottom: 0; }
-  tbody tr:hover td { background: var(--bg); }
+  tbody tr:hover td { background: var(--raised); }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   td .obj { display: inline-flex; align-items: center; gap: 8px; }
   td .id { color: var(--muted); font-size: 13px; }
   .time { font-variant-numeric: tabular-nums; }
-  .downloads { margin-top: 14px; font-size: 14px; }
-  [hidden] { display: none !important; }
 
   /* modes */
-  .tabs { display: inline-flex; gap: 4px; margin-top: 16px; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
-  .tab { background: transparent; color: var(--muted); font-weight: 500; padding: 6px 14px; }
-  .tab:not(.active):hover { filter: none; color: var(--text); background: var(--bg); }
-  .tab.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-  .chip { cursor: pointer; }
-  span.chip { cursor: default; }
-  button.chip:not(.active):hover { filter: none; border-color: var(--border-strong); }
-  select { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); max-width: 260px; }
+  .tabs { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
+  .tab { background: transparent; color: var(--muted); font-weight: 500; padding: 6px 14px; font-size: 14px; }
+  .tab:not(.active):not(:disabled):hover { color: var(--text); background: var(--raised); }
+  .tab.active, .tab.active:not(:disabled):hover { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  select { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); max-width: 260px; }
   .stage.live { margin-top: 14px; }
   .stage.live video { transform: scaleX(-1); }
 
-  /* meetings */
-  .form { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 14px; align-items: center; }
-  .form label { color: var(--muted); font-size: 14px; }
+  /* side lists: recent videos and the meeting setup sit in their own column on wide screens */
+  @media (min-width: 1100px) {
+    #file-mode.has-history:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+    #file-mode.has-history #history { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+    #meetings-mode:not([hidden]) { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 16px; align-items: start; }
+    #meetings-mode .m-side { position: sticky; top: 16px; }
+  }
+
+  /* meetings: recording setup */
+  .form { display: grid; grid-template-columns: 1fr; gap: 4px; }
+  .form label { color: var(--muted); font-size: 13px; font-weight: 500; margin-top: 8px; }
+  .form label:first-child { margin-top: 0; }
   .form select, .form input { max-width: 100%; width: 100%; }
-  input[type=text], input[type=search] { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
-  #meeting-form + .row { margin-top: 16px; }
-  .rec { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: #e51c23; font-variant-numeric: tabular-nums; font-size: 20px; }
-  .rec::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: #e51c23; animation: blink 1.2s infinite; }
+  input[type=text], input[type=search] { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); }
+  .ready-list { list-style: none; margin: 16px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--raised); border: 1px solid var(--border); display: grid; gap: 8px; font-size: 14px; }
+  .ready-list li { display: flex; gap: 10px; align-items: flex-start; }
+  .ready-list .mark { width: 18px; height: 18px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; margin-top: 2px; }
+  .ready-list .yes .mark { background: var(--ok-soft); color: var(--ok); }
+  .ready-list .no .mark { background: var(--warn-soft); color: var(--warn); }
+  .ready-list .what { font-weight: 600; display: block; }
+  .ready-list .how { color: var(--muted); font-size: 13px; word-break: break-word; display: block; }
+  .start-row { margin-top: 16px; }
+  #m-status { margin-top: 8px; display: block; }
+  #m-status:empty { display: none; }
+  .rec { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--rec); font-variant-numeric: tabular-nums; font-size: 22px; }
+  .rec::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--rec); animation: blink 1.2s infinite; }
   @keyframes blink { 50% { opacity: .25; } }
+  #m-hint { margin: 14px 0 0; }
   .path { font-size: 13px; color: var(--muted); word-break: break-all; }
-  .list-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+
+  /* lists */
+  .list-head { display: flex; justify-content: space-between; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 12px; }
   .list-head h2 { margin: 0; }
   .list-head .count { color: var(--muted); font-weight: 500; margin-left: 4px; }
   .list-head input { width: 220px; max-width: 100%; }
-  .group-title { margin: 18px 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  .group-title { margin: 18px 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
   .group-title:first-child { margin-top: 4px; }
-  .entry { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; transition: border-color .15s; }
-  .entry:hover { border-color: var(--border-strong); }
-  .entry.failed { border-left: 3px solid var(--error); }
-  .entry.recording { border-left: 3px solid #e51c23; }
-  .m-head { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
-  .m-head .title { font-weight: 600; font-size: 16px; display: inline-flex; align-items: center; gap: 8px; min-width: 0; word-break: break-word; }
+  .entry { border: 1px solid transparent; background: var(--raised); border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; transition: border-color .15s, background .15s; }
+  .entry:hover { border-color: var(--border); }
+  .entry.failed { box-shadow: inset 3px 0 0 var(--error); }
+  .entry.recording { box-shadow: inset 3px 0 0 var(--rec); }
+  .entry.current, .entry.current:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .entry.clickable { cursor: pointer; }
+  .m-head { display: flex; justify-content: space-between; align-items: center; gap: 4px 12px; }
+  .m-head .title { font-weight: 600; font-size: 16px; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; word-break: break-word; }
+  .m-head .side { display: inline-flex; align-items: center; gap: 4px; flex: none; }
   .m-head .when { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .m-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .tag { font-size: 12px; padding: 2px 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tag b { color: var(--text); font-weight: 600; }
-  .m-msg { font-size: 13px; padding: 6px 10px; border-radius: 6px; margin-top: 8px; }
+  .m-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+  .entry .chip { font-size: 13px; padding: 2px 10px; }
+  .summary-line { margin-top: 6px; font-size: 14px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+  .summary-line b { color: var(--text); font-weight: 600; }
+  .warn-chip { font: inherit; font-size: 13px; font-weight: 600; padding: 1px 10px; border-radius: 99px; border: 0; background: var(--warn-soft); color: var(--warn); cursor: pointer; }
+  .warn-chip:not(:disabled):hover { background: var(--warn-soft); text-decoration: underline; }
+  .m-msg { font-size: 13px; padding: 7px 10px; border-radius: 8px; margin-top: 8px; }
   .m-msg.warn { background: var(--warn-soft); color: var(--warn); }
   .m-msg.err { background: var(--error-soft); color: var(--error); }
-  .m-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
-  .m-actions .spacer { flex: 1; }
-  .m-actions .link { font-size: 14px; }
   .entry .progress { margin: 10px 0 4px; max-width: 360px; }
+  .entry details { margin-top: 10px; }
+  .entry details .path { margin-top: 4px; }
+  #history .entry { padding: 12px 14px; }
+  #history .m-head .title { font-size: 15px; }
 
-  /* meeting notes, rendered from notes.md */
-  .notes { margin-top: 12px; padding: 14px 16px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); font-size: 15px; }
+  /* Notes | Transcript | Recording inside a meeting card */
+  .seg-tabs { display: inline-flex; gap: 2px; padding: 3px; margin-top: 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); flex-wrap: wrap; }
+  .seg { font-size: 13px; font-weight: 500; padding: 4px 12px; border-radius: 7px; background: transparent; color: var(--muted); border: 0; }
+  .seg:not(.active):not(:disabled):hover { color: var(--text); background: var(--raised); }
+  .seg.active, .seg.active:not(:disabled):hover { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+  .panel { margin-top: 10px; padding: 14px 16px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); font-size: 15px; }
+  .panel video { display: block; width: 100%; border-radius: 8px; background: #000; max-height: 60vh; }
+  .panel audio { display: block; width: 100%; }
+  .panel .foot { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
+
+  /* meeting notes and transcript, rendered from Markdown */
   .notes h3 { margin: 0 0 2px; font-size: 17px; }
   .notes h4 { margin: 16px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
   .notes h5 { margin: 10px 0 2px; font-size: 15px; }
@@ -197,68 +266,59 @@
   .notes li { margin: 2px 0; }
   .notes li.task { list-style: none; margin-left: -20px; display: flex; gap: 8px; align-items: baseline; }
   .notes li.task input { margin: 0; flex: none; transform: translateY(1px); }
-  .notes code { font-size: 13px; padding: 0 5px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); }
+  .notes code { font-size: 13px; padding: 0 5px; border-radius: 4px; background: var(--raised); border: 1px solid var(--border); }
   .notes hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0 8px; }
-  .notes .foot { font-size: 13px; color: var(--muted); }
+  .notes.transcript .body { max-height: 420px; overflow-y: auto; }
+  .notes.transcript p { margin: 6px 0; }
+
+  /* badges */
+  .badge { font-size: 12px; font-weight: 600; padding: 1px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+  .badge.completed, .badge.ready { background: var(--ok-soft); color: var(--ok); }
+  .badge.failed { background: var(--error-soft); color: var(--error); }
+  .badge.recording { background: var(--rec); color: #fff; }
 
   /* toasts */
-  #toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 10; max-width: calc(100vw - 32px); }
-  .toast { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 14px; box-shadow: 0 6px 24px rgba(0, 0, 0, .18); width: 320px; max-width: 100%; animation: toast-in .2s ease-out; }
+  #toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 30; max-width: calc(100vw - 32px); }
+  .toast { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 12px; padding: 10px 14px; box-shadow: var(--menu-shadow); width: 320px; max-width: 100%; animation: toast-in .2s ease-out; }
   .toast.failed { border-left-color: var(--error); }
-  .toast.done { border-left-color: #16a34a; }
+  .toast.done { border-left-color: var(--ok); }
   .toast strong { display: block; font-size: 14px; }
   .toast span { font-size: 13px; color: var(--muted); word-break: break-word; }
   @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } }
-
-  /* wide layout for the meetings tab: setup on the left, the list on the right */
-  body.wide main { max-width: 1240px; }
-  @media (min-width: 1100px) {
-    #meetings-mode:not([hidden]) { display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: 16px; align-items: start; }
-    #meetings-mode .m-side { position: sticky; top: 16px; }
-    #meetings-mode .form { grid-template-columns: 1fr; gap: 4px; }
-    #meetings-mode .form label { margin-top: 6px; }
-  }
-  .entry.current { border-color: var(--accent); background: var(--accent-soft); }
-  .entry.clickable { cursor: pointer; }
-  .entry .chip { font-size: 13px; padding: 2px 10px; }
-  .badge.queued, .badge.processing { background: var(--accent-soft); color: var(--accent); }
-  .badge.completed { background: var(--ok-soft); color: var(--ok); }
-  .entry details { margin-top: 10px; }
-  .entry details .path { margin-top: 4px; }
-  .badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
-  .badge.failed { background: var(--error-soft); color: var(--error); }
-  .badge.recording { background: #e51c23; color: #fff; }
-  .badge.ready { background: var(--ok-soft); color: var(--ok); }
-  @media (max-width: 520px) { .form { grid-template-columns: 1fr; gap: 4px; } .list-head input { width: 100%; } }
+  @media (max-width: 520px) { .list-head input { width: 100%; } .card { padding: 18px 16px; } }
 </style>
 </head>
 <body>
 <main>
   <header>
-    <div class="brand">
-      <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="14" fill="#2563eb"/><path d="M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="32" r="6" fill="#fff"/></svg>
-      <h1>VisionTrack</h1>
+    <div class="bar">
+      <div class="brand">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" fill="#b65a37"/><path d="M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="32" r="6" fill="#fff"/></svg>
+        <h1>VisionTrack</h1>
+      </div>
+      <nav class="tabs">
+        <button class="tab active" data-mode="file">Video file</button>
+        <button class="tab" data-mode="live">Live camera</button>
+        <button class="tab" data-mode="meetings">Meetings</button>
+      </nav>
+      <span class="spacer"></span>
       <button class="secondary" id="theme-toggle" type="button"></button>
     </div>
     <p id="subtitle">Find out which objects appear in a video and when.</p>
-    <nav class="tabs">
-      <button class="tab active" data-mode="file">Video file</button>
-      <button class="tab" data-mode="live">Live camera</button>
-      <button class="tab" data-mode="meetings">Meetings</button>
-    </nav>
   </header>
 
   <div id="file-mode">
+  <div class="f-main">
   <section class="card" id="upload-card">
     <label id="drop">
       <input id="file" type="file" accept="video/*" hidden>
+      <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
       <strong>Drop a video here or click to choose</strong>
-      <span class="muted">MP4, MOV, MKV, AVI, WebM · up to 2 GB</span>
-      <div id="file-name"></div>
+      <span class="muted">The analysis starts right away · MP4, MOV, MKV, AVI, WebM · up to 2 GB</span>
     </label>
-    <div class="row">
-      <button id="analyze" disabled>Analyse</button>
-      <button id="reset" class="secondary" hidden>New video</button>
+    <div class="row spread" id="upload-row" hidden>
+      <span id="file-name"></span>
+      <button id="reset" class="secondary small">Analyse another video</button>
     </div>
     <div id="progress-box" hidden>
       <div class="progress"><div id="bar"></div></div>
@@ -271,7 +331,10 @@
     <div class="card">
       <div class="result-head">
         <h2 id="r-title"></h2>
-        <span id="r-cloud"></span>
+        <div class="row">
+          <span id="r-cloud"></span>
+          <span id="dl-menu"></span>
+        </div>
       </div>
       <div class="tiles" id="tiles"></div>
       <details>
@@ -292,8 +355,8 @@
     </div>
 
     <div class="card" id="timeline-card" hidden>
-      <div class="row spread" style="margin-bottom: 10px">
-        <h2 style="margin: 0">When objects appear</h2>
+      <div class="card-head">
+        <h2>When objects appear</h2>
         <span class="muted" id="tl-hint">Click a bar to jump there</span>
       </div>
       <div class="timeline" id="timeline"></div>
@@ -311,19 +374,14 @@
         </table>
       </div>
       <p class="muted" id="no-rows" hidden>No objects were detected in this video.</p>
-      <div class="downloads row">
-        <span class="muted">Download:</span>
-        <button class="link" id="dl-csv">CSV</button>
-        <button class="link" id="dl-json">JSON</button>
-        <a class="link" id="dl-video" hidden>Video with boxes</a>
-      </div>
     </div>
   </section>
+  </div>
 
   <section class="card" id="history" hidden>
     <div class="list-head">
       <h2>Recent videos<span class="count" id="h-count"></span></h2>
-      <span class="muted">Kept until the app is closed</span>
+      <span class="muted">Until the app is closed</span>
     </div>
     <div id="h-list"></div>
   </section>
@@ -356,6 +414,10 @@
     <div class="m-side">
     <div class="card">
       <div id="rec-setup">
+        <div class="card-head">
+          <h2>New recording</h2>
+          <button class="icon" id="m-refresh" type="button" title="Look for screens and microphones again" aria-label="Look for screens and microphones again"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+        </div>
         <div class="form" id="meeting-form">
           <label for="m-title">Title</label>
           <input type="text" id="m-title" placeholder="Meeting" maxlength="120">
@@ -363,20 +425,16 @@
           <select id="m-monitor"></select>
           <label for="m-mic">Microphone</label>
           <select id="m-mic"></select>
-          <label>Other participants</label>
-          <span class="muted" id="m-system">…</span>
         </div>
-        <div class="row">
-          <button id="m-start" disabled>Start recording</button>
-          <button id="m-refresh" class="secondary">Refresh devices</button>
-          <span class="muted" id="m-status">Looking for screens and microphones…</span>
-        </div>
+        <ul class="ready-list" id="m-ready" hidden></ul>
+        <div class="start-row"><button id="m-start" class="wide" disabled>Start recording</button></div>
+        <span class="muted" id="m-status">Looking for screens and microphones…</span>
       </div>
       <div id="rec-live" class="row spread" hidden>
         <span class="rec" id="m-timer">00:00:00</span>
         <button id="m-stop">Stop</button>
       </div>
-      <p class="muted" id="m-hint">Records the screen, your microphone and the sound of the call. Nothing is analysed during the meeting, so it stays smooth.</p>
+      <p class="muted" id="m-hint">Nothing is analysed during the meeting, so it stays smooth. The files stay on this computer.</p>
       <div id="m-error" class="error" hidden></div>
     </div>
     <div class="card">
@@ -384,7 +442,7 @@
       <label id="m-drop">
         <input id="m-file" type="file" accept="audio/*,video/*,.mkv,.webm,.m4a,.opus,.flac" hidden>
         <strong>Drop a meeting recording here or click to choose</strong>
-        <span class="muted">Audio (MP3, M4A, WAV, OGG, FLAC) or video (MP4, MKV, WebM, MOV) · up to 2 GB · the notes come from the sound</span>
+        <span class="muted">Audio or video · up to 2 GB · the notes come from the sound</span>
       </label>
       <div class="path" id="m-upload-status"></div>
     </div>
@@ -437,7 +495,7 @@ window.notifyDone = (() => {
     try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch {}
   };
   // The permission prompt needs a click: ask on the first one that starts long work
-  document.addEventListener('click', e => { if (e.target.closest('#analyze, #m-start, #m-drop')) ask(); });
+  document.addEventListener('click', e => { if (e.target.closest('#drop, #m-start, #m-drop')) ask(); });
 
   return (title, text, kind) => {
     const toast = document.createElement('div');
@@ -461,31 +519,105 @@ window.notifyDone = (() => {
 </script>
 
 <script>
+// ---------- small pop-up menus: "..." on list entries and "Download" on a result ----------
+// Items are { label, onClick, href, danger } or '-' for a separator. One menu is open at a time; lists that
+// refresh on a timer wait while a menu is open (isOpen) and redraw on the 'menuclose' event.
+window.actionMenu = (() => {
+  const DOTS = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+  const CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+  let open = null;
+
+  function close() {
+    if (!open) return;
+    open.wrap.classList.remove('open');
+    open.pop.hidden = true;
+    open.button.setAttribute('aria-expanded', 'false');
+    open = null;
+    document.dispatchEvent(new Event('menuclose'));
+  }
+  document.addEventListener('click', e => { if (open && !open.wrap.contains(e.target)) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  function make(button, items) {
+    const wrap = document.createElement('span');
+    wrap.className = 'menu';
+    const pop = document.createElement('div');
+    pop.className = 'menu-pop';
+    pop.hidden = true;
+    pop.setAttribute('role', 'menu');
+    for (const item of items) {
+      if (item === '-') { pop.append(document.createElement('hr')); continue; }
+      const node = document.createElement(item.href ? 'a' : 'button');
+      node.textContent = item.label;
+      node.setAttribute('role', 'menuitem');
+      if (item.danger) node.className = 'danger';
+      if (item.href) node.href = item.href;
+      node.addEventListener('click', () => { close(); item.onClick?.(); });
+      pop.append(node);
+    }
+    // Clicks inside the menu must not reach the list entry under it (that would open the entry)
+    pop.addEventListener('click', e => e.stopPropagation());
+    pop.addEventListener('keydown', e => e.stopPropagation());
+    button.type = 'button';
+    button.setAttribute('aria-haspopup', 'menu');
+    button.setAttribute('aria-expanded', 'false');
+    button.addEventListener('keydown', e => e.stopPropagation());
+    button.addEventListener('click', e => {
+      e.stopPropagation();
+      const wasOpen = open?.wrap === wrap;
+      close();
+      if (wasOpen) return;
+      open = { wrap, pop, button };
+      wrap.classList.add('open');
+      pop.hidden = false;
+      button.setAttribute('aria-expanded', 'true');
+    });
+    wrap.append(button, pop);
+    return wrap;
+  }
+
+  return {
+    dots(items, title) {
+      const button = document.createElement('button');
+      button.className = 'icon';
+      button.innerHTML = DOTS;   // constant markup
+      button.title = title;
+      button.setAttribute('aria-label', title);
+      return make(button, items);
+    },
+    labelled(label, items) {
+      const button = document.createElement('button');
+      button.className = 'secondary small';
+      button.textContent = label;
+      button.insertAdjacentHTML('beforeend', CHEVRON);   // constant markup
+      return make(button, items);
+    },
+    isOpen: () => open !== null
+  };
+})();
+</script>
+
+<script>
 (() => {
   const $ = id => document.getElementById(id);
-  const fileInput = $('file'), drop = $('drop'), analyzeBtn = $('analyze'), resetBtn = $('reset');
+  const fileInput = $('file'), drop = $('drop'), resetBtn = $('reset');
   const player = $('player');
   let selectedFile = null, currentJob = null, activeLabel = null, pollTimer = null, annotatedVideo = false;
   let highlightId = null;
 
   // ---------- upload ----------
+  // Choosing a file starts the analysis right away: there is nothing else to set
   function selectFile(file) {
     if (!file) return;
+    clearTimeout(pollTimer);
     selectedFile = file;
-    $('file-name').textContent = `${file.name} (${(file.size / 1048576).toFixed(1)} MB)`;
-    analyzeBtn.disabled = false;
-    hideError();
-  }
-  fileInput.addEventListener('change', () => selectFile(fileInput.files[0]));
-  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
-  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', e => selectFile(e.dataTransfer.files[0]));
-
-  analyzeBtn.addEventListener('click', () => {
-    if (!selectedFile) return;
-    analyzeBtn.disabled = true;
+    currentJob = null;
     hideError();
     $('results').hidden = true;
+    drop.hidden = true;
+    $('upload-row').hidden = false;
+    resetBtn.hidden = true;
+    $('file-name').textContent = `${file.name} (${(file.size / 1048576).toFixed(1)} MB)`;
     showProgress(0, 'Uploading…');
 
     const form = new FormData();
@@ -504,23 +636,31 @@ window.notifyDone = (() => {
     };
     xhr.onerror = () => fail('Upload failed – is the server running?');
     xhr.send(form);
-  });
+  }
+  fileInput.addEventListener('change', () => selectFile(fileInput.files[0]));
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => selectFile(e.dataTransfer.files[0]));
 
-  resetBtn.addEventListener('click', () => {
+  // Back to the empty drop zone
+  function showUpload() {
     clearTimeout(pollTimer);
     selectedFile = null; currentJob = null;
     fileInput.value = '';
     $('file-name').textContent = '';
     $('progress-box').hidden = true;
     $('results').hidden = true;
-    $('drop').hidden = false;
-    resetBtn.hidden = true;
-    analyzeBtn.hidden = false;
-    analyzeBtn.disabled = true;
+    $('video-card').hidden = true;
+    revokeLocalVideo();
+    player.removeAttribute('src');
+    player.load();
+    drop.hidden = false;
+    $('upload-row').hidden = true;
     hideError();
     history.replaceState(null, '', location.pathname);
     renderHistory();
-  });
+  }
+  resetBtn.addEventListener('click', showUpload);
 
   // ---------- polling ----------
   function track(jobId) {
@@ -547,10 +687,10 @@ window.notifyDone = (() => {
       else if (job.status === 'COMPLETED') {
         loadHistory();
         if (sawRunning) notifyDone('Analysis finished', `${job.fileName}: ${plural(job.result.totalObjects, 'object')} found`, 'done');
-        // The upload form is no longer needed: show just the file name and a "New video" button
+        // The drop zone is no longer needed: keep a small row with the way back to it
         $('progress-box').hidden = true;
-        $('drop').hidden = true;
-        analyzeBtn.hidden = true;
+        drop.hidden = true;
+        $('upload-row').hidden = false;
         resetBtn.hidden = false;
         $('file-name').textContent = '';
         return render(job);
@@ -585,6 +725,7 @@ window.notifyDone = (() => {
 
     renderFilters();
     showVideo(job);
+    renderDownloads(job);
     renderRows();
     renderTimeline();
     $('results').hidden = false;
@@ -795,7 +936,7 @@ window.notifyDone = (() => {
   // The server reports each object's position in every analysed frame (result.objects[].track).
   // While the video plays, positions between two analysed frames are interpolated.
   const overlay = $('overlay'), ctx = overlay.getContext('2d');
-  const COLORS = ['#ff5252', '#40c4ff', '#69f0ae', '#ffd740', '#e040fb', '#ff9100', '#64ffda', '#b388ff', '#eeff41', '#ff80ab'];
+  const COLORS = ['#f0716c', '#4fb3e8', '#5cc98a', '#f2c14e', '#c47ee8', '#f2914a', '#45cbbd', '#9d8cf0', '#c4d04a', '#f08cb3'];
 
   function colorFor(label) {
     let h = 0;
@@ -871,15 +1012,22 @@ window.notifyDone = (() => {
     requestAnimationFrame(animate);
   })();
 
-  // ---------- downloads ----------
-  $('dl-json').addEventListener('click', () => download(JSON.stringify(currentJob, null, 2), 'application/json', 'json'));
-  $('dl-csv').addEventListener('click', () => {
+  // ---------- downloads: a menu next to the result title ----------
+  function renderDownloads(job) {
+    const items = [
+      { label: 'Objects as CSV', onClick: downloadCsv },
+      { label: 'Full result as JSON', onClick: () => download(JSON.stringify(currentJob, null, 2), 'application/json', 'json') }
+    ];
+    if (job.annotatedVideoUrl) items.push('-', { label: 'Video with boxes (MP4)', href: `${job.annotatedVideoUrl}?download=true` });
+    $('dl-menu').replaceChildren(actionMenu.labelled('Download', items));
+  }
+  function downloadCsv() {
     const header = ['id', 'label', 'first_seen', 'first_seen_seconds', 'last_seen', 'last_seen_seconds', 'visible_seconds', 'confidence'];
     const lines = currentJob.result.objects.map(o =>
       [o.id, o.label, o.firstSeen, o.firstSeenSeconds, o.lastSeen, o.lastSeenSeconds, o.visibleSeconds, o.confidence]
         .map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
     download([header.join(','), ...lines].join('\n'), 'text/csv', 'csv');
-  });
+  }
   function download(content, type, ext) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([content], { type }));
@@ -895,12 +1043,10 @@ window.notifyDone = (() => {
   function showVideo(job) {
     annotatedVideo = Boolean(job.annotatedVideoUrl);
     $('boxes-toggle').hidden = annotatedVideo;
-    $('dl-video').hidden = !annotatedVideo;
     if (!annotatedVideo) return;
 
     revokeLocalVideo();
     player.src = job.annotatedVideoUrl;
-    $('dl-video').href = `${job.annotatedVideoUrl}?download=true`;
     $('video-card').hidden = false;
   }
 
@@ -925,10 +1071,9 @@ window.notifyDone = (() => {
     $('error').textContent = message;
     $('error').hidden = false;
     $('progress-box').hidden = true;
-    $('drop').hidden = false;
-    analyzeBtn.hidden = false;
-    analyzeBtn.disabled = !selectedFile;
-    resetBtn.hidden = false;
+    $('upload-row').hidden = true;
+    fileInput.value = '';   // choosing the same file again retries
+    drop.hidden = false;
   }
   function hideError() { $('error').hidden = true; }
   function parseJson(text) { try { return JSON.parse(text); } catch { return null; } }
@@ -936,7 +1081,8 @@ window.notifyDone = (() => {
   // ---------- recent videos ----------
   // The server keeps finished analyses in memory; the list shows them newest first, grouped by day.
   const JOB_STATUS = { QUEUED: 'Queued', PROCESSING: 'Analysing', COMPLETED: 'Done', FAILED: 'Failed' };
-  let pastJobs = [], historyTimer = null;
+  let pastJobs = [], historyTimer = null, historyWaiting = false;
+  document.addEventListener('menuclose', () => { if (historyWaiting) { historyWaiting = false; renderHistory(); } });
 
   async function loadHistory() {
     clearTimeout(historyTimer);
@@ -947,7 +1093,8 @@ window.notifyDone = (() => {
     } catch {
       return;
     }
-    renderHistory();
+    if (actionMenu.isOpen()) historyWaiting = true;   // redrawing would close the open menu
+    else renderHistory();
     // The opened result shows its upload state too; it changes a few seconds after the analysis ends
     const shown = currentJob && pastJobs.find(j => j.id === currentJob.id);
     if (shown) showCloud(shown.cloud);
@@ -959,6 +1106,9 @@ window.notifyDone = (() => {
   function renderHistory() {
     const current = new URLSearchParams(location.search).get('job');
     $('history').hidden = pastJobs.length === 0;
+    // On wide screens the list gets its own column next to the result
+    $('file-mode').classList.toggle('has-history', pastJobs.length > 0);
+    if (!$('file-mode').hidden) document.body.classList.toggle('wide', pastJobs.length > 0);
     $('h-count').textContent = pastJobs.length ? ` · ${pastJobs.length}` : '';
     const nodes = [];
     let lastDay = null;
@@ -980,7 +1130,15 @@ window.notifyDone = (() => {
     title.append(el('span', `badge ${status}`,
       job.status === 'PROCESSING' ? `Analysing ${job.progressPercent}%` : JOB_STATUS[job.status] || job.status));
     const time = new Date(job.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    head.append(title, el('span', 'when', s ? `${time} · ${clock(s.durationSeconds)}` : time));
+    const side = el('span', 'side');
+    side.append(el('span', 'when', s ? `${time} · ${clock(s.durationSeconds)}` : time));
+    if (job.status === 'COMPLETED' || job.status === 'FAILED') {
+      const items = [];
+      if (!isCurrent && job.status === 'COMPLETED') items.push({ label: 'Show results', onClick: () => openPast(job.id) }, '-');
+      items.push({ label: 'Delete…', danger: true, onClick: () => deleteJob(job, isCurrent) });
+      side.append(actionMenu.dots(items, 'Video actions'));
+    }
+    head.append(title, side);
     item.append(head);
 
     // The most frequent objects, like the filter chips of an opened result
@@ -988,12 +1146,12 @@ window.notifyDone = (() => {
       const tags = el('div', 'm-tags');
       if (!s.totalObjects) tags.append(el('span', 'muted', 'No objects found'));
       const top = [...s.counts].sort((a, b) => b.count - a.count);
-      for (const c of top.slice(0, 5)) {
+      for (const c of top.slice(0, 3)) {
         const chip = el('span', 'chip');
         chip.append(dot(colorFor(c.label)), c.label, el('span', 'n', String(c.count)));
         tags.append(chip);
       }
-      if (top.length > 5) tags.append(el('span', 'muted', `+${top.length - 5} more`));
+      if (top.length > 3) tags.append(el('span', 'muted', `+${top.length - 3} more`));
       const cloud = cloudBadge(job.cloud);
       if (cloud) tags.append(cloud);
       item.append(tags);
@@ -1009,12 +1167,29 @@ window.notifyDone = (() => {
     return item;
   }
 
+  async function deleteJob(job, isCurrent) {
+    if (!confirm(`Delete "${job.fileName}"?\n\nThe video with boxes and the results are removed from this computer. ` +
+        'Detections already sent to the cloud stay there.')) return;
+    try {
+      const res = await fetch(`/api/analyses/${encodeURIComponent(job.id)}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 404) {
+        const data = parseJson(await res.text());
+        throw new Error(data?.detail || data?.message || `Delete failed (${res.status})`);
+      }
+    } catch (e) {
+      $('error').textContent = e.message;
+      $('error').hidden = false;
+      return;
+    }
+    if (isCurrent || currentJob?.id === job.id) showUpload();
+    loadHistory();
+  }
+
   function openPast(jobId) {
     clearTimeout(pollTimer);
     selectedFile = null;
     fileInput.value = '';
     $('file-name').textContent = '';
-    analyzeBtn.disabled = true;
     revokeLocalVideo();
     player.removeAttribute('src');
     player.load();
@@ -1053,7 +1228,7 @@ window.notifyDone = (() => {
 // ---------- live camera ----------
 (() => {
   const $ = id => document.getElementById(id);
-  const COLORS = ['#ff5252', '#40c4ff', '#69f0ae', '#ffd740', '#e040fb', '#ff9100', '#64ffda', '#b388ff', '#eeff41', '#ff80ab'];
+  const COLORS = ['#f0716c', '#4fb3e8', '#5cc98a', '#f2c14e', '#c47ee8', '#f2914a', '#45cbbd', '#9d8cf0', '#c4d04a', '#f08cb3'];
   const colorFor = label => { let h = 0; for (const ch of label) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const MAX_SIDE = 960;   // frames sent to the server are downscaled to this
@@ -1082,7 +1257,8 @@ window.notifyDone = (() => {
     $('live-mode').hidden = mode !== 'live';
     $('meetings-mode').hidden = mode !== 'meetings';
     $('subtitle').textContent = SUBTITLES[mode];
-    document.body.classList.toggle('wide', mode === 'meetings');
+    document.body.classList.toggle('wide', mode === 'meetings'
+      || (mode === 'file' && $('file-mode').classList.contains('has-history')));
     if (mode !== 'live') stop();
     document.dispatchEvent(new CustomEvent('modechange', { detail: mode }));
   }));
@@ -1305,12 +1481,18 @@ window.notifyDone = (() => {
       $('m-monitor').replaceChildren(...devices.monitors.map(m =>
         new Option(m.width ? `${m.name} · ${m.width}×${m.height}` : m.name, m.index)));
       $('m-mic').replaceChildren(...devices.microphones.map(name => new Option(name, name)));
-      // The call is heard through the default output device; use headphones so the microphone does not pick it up
-      $('m-system').textContent = devices.systemAudio
-        ? `${devices.systemAudio} (what the computer plays; headphones recommended)`
-        : 'Not recorded: the system sound helper is missing (packaging\\build-loopback.ps1)';
       const noMic = devices.microphones.length === 0;
-      $('m-status').textContent = noMic ? 'No microphone found. Connect one and press Refresh devices.' : '';
+      // What will be in the recording, checked before it starts: above all, whether the other side is heard
+      showReadiness([
+        { ok: devices.monitors.length > 0, what: 'Your screen',
+          how: devices.monitors.length ? 'Recorded so you can watch the meeting again' : 'No screen found' },
+        { ok: !noMic, what: 'Your voice', how: noMic ? 'No microphone found: connect one and press ⟳' : 'From the microphone above' },
+        // The call is heard through the default output device; headphones keep the microphone from picking it up
+        { ok: Boolean(devices.systemAudio), what: 'The other participants',
+          how: devices.systemAudio ? `From what the computer plays (${devices.systemAudio}); headphones recommended`
+            : 'Not recorded: the system sound helper is missing (tools\\audio-loopback, see packaging\\build-loopback.ps1)' }
+      ]);
+      $('m-status').textContent = '';
       $('m-start').disabled = noMic;
     } catch (e) {
       $('m-status').textContent = '';
@@ -1318,6 +1500,17 @@ window.notifyDone = (() => {
     } finally {
       $('m-refresh').disabled = false;
     }
+  }
+
+  function showReadiness(checks) {
+    $('m-ready').replaceChildren(...checks.map(c => {
+      const li = el('li', c.ok ? 'yes' : 'no');
+      const text = el('span', '');
+      text.append(el('span', 'what', c.what), el('span', 'how', c.how));
+      li.append(el('span', 'mark', c.ok ? '✓' : '!'), text);
+      return li;
+    }));
+    $('m-ready').hidden = false;
   }
 
   async function start() {
@@ -1398,7 +1591,7 @@ window.notifyDone = (() => {
     for (const { meeting } of items) {
       const before = lastStatus.get(meeting.id);
       if (['RECORDED', 'PROCESSING'].includes(before) && meeting.status === 'READY') {
-        notesCache.delete(meeting.id);
+        forget(meeting.id);
         const n = meeting.notes;
         notifyDone('Meeting notes are ready', n ? `${meeting.title}: ${n.decisions} decisions, ${n.actionItems} action items` : meeting.title, 'done');
       } else if (['RECORDED', 'PROCESSING'].includes(before) && meeting.status === 'FAILED') {
@@ -1407,7 +1600,8 @@ window.notifyDone = (() => {
       lastStatus.set(meeting.id, meeting.status);
     }
     allMeetings = items;
-    renderList();
+    if (actionMenu.isOpen()) listWaiting = true;   // redrawing would close the open menu
+    else renderList();
     // Keep refreshing while something is being processed
     const busy = items.some(i => ['RECORDED', 'PROCESSING'].includes(i.meeting.status));
     clearTimeout(poll);
@@ -1422,11 +1616,22 @@ window.notifyDone = (() => {
     { key: 'busy', label: 'In progress', test: m => ['RECORDING', 'RECORDED', 'PROCESSING'].includes(m.status) },
     { key: 'failed', label: 'Failed', test: m => m.status === 'FAILED' }
   ];
-  let allMeetings = [], statusFilter = 'all';
-  const openDetails = new Set();   // ids whose "Details" are expanded survive the 2 s refresh
-  const openNotes = new Set();     // the same for the notes shown inside a card
-  const notesCache = new Map();    // meeting id -> notes.md text
+  let allMeetings = [], statusFilter = 'all', listWaiting = false;
+  // What is expanded in a card survives the 2 s refresh: the details, the warnings and the open tab
+  const openDetails = new Set();
+  const openWarnings = new Set();
+  const openPanel = new Map();     // meeting id -> 'notes' | 'transcript' | 'recording'
+  const panels = new Map();        // meeting id -> { kind, node }: reused, so a playing recording keeps playing
+  const textCache = new Map();     // 'notes:<id>' / 'transcript:<id>' -> Markdown text
   const lastStatus = new Map();    // meeting id -> status at the previous refresh
+  document.addEventListener('menuclose', () => { if (listWaiting) { listWaiting = false; renderList(); } });
+
+  // Drops what was loaded for a meeting, e.g. after it was processed again
+  function forget(id) {
+    textCache.delete(`notes:${id}`);
+    textCache.delete(`transcript:${id}`);
+    panels.delete(id);
+  }
 
   $('m-search').addEventListener('input', renderList);
 
@@ -1474,40 +1679,62 @@ window.notifyDone = (() => {
   }
 
   function renderMeeting({ meeting, folder }) {
-    const status = meeting.status.toLowerCase();
+    const id = meeting.id, status = meeting.status.toLowerCase();
     const div = el('article', `entry ${status}`);
 
-    // Title + status on the left, start time and length on the right
+    // Title and status on the left; start time, length and the "..." menu on the right
     const head = el('div', 'm-head');
     const title = el('span', 'title', meeting.title);
     title.append(el('span', `badge ${status}`, STATUS_TEXT[meeting.status] || meeting.status));
     const duration = Math.max(0, ...meeting.tracks.map(t => t.durationSeconds));
     const time = new Date(meeting.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    head.append(title, el('span', 'when', duration ? `${time} · ${humanLength(duration)}` : time));
+    const side = el('span', 'side');
+    side.append(el('span', 'when', duration ? `${time} · ${humanLength(duration)}` : time));
+    const items = [];
+    if (folder) {
+      items.push({ label: 'Open folder', onClick: () => api(`/api/meetings/${id}/open-folder`, { method: 'POST' }).catch(e => showError(e.message)) });
+    }
+    if (['READY', 'FAILED'].includes(meeting.status) && meeting.tracks.length) {
+      items.push({ label: 'Process again', onClick: () => {
+        forget(id);
+        api(`/api/meetings/${id}/process`, { method: 'POST' }).then(loadMeetings).catch(e => showError(e.message));
+      } });
+    }
+    if (['RECORDED', 'READY', 'FAILED'].includes(meeting.status)) {
+      if (items.length) items.push('-');
+      items.push({ label: 'Delete…', danger: true, onClick: () => deleteMeeting(meeting) });
+    }
+    if (items.length) side.append(actionMenu.dots(items, 'Meeting actions'));
+    head.append(title, side);
     div.append(head);
 
-    // What was recorded and what came out of it
-    const tags = el('div', 'm-tags');
-    const tag = (name, value) => {
-      const t = el('span', 'tag');
-      if (value) { t.append(`${name} `); t.append(el('b', '', value)); t.title = `${name} ${value}`; }
-      else t.textContent = name;
-      return t;
+    // One line with what came out of it; problems are counted here and listed on request
+    const t = meeting.transcription, n = meeting.notes;
+    const line = el('div', 'summary-line');
+    const fact = (value, label) => {
+      const span = el('span', '');
+      span.append(el('b', '', String(value)), ` ${label}`);
+      return span;
     };
     const uploaded = meeting.screenCapture?.startsWith('Uploaded: ');
-    if (uploaded) tags.append(tag('File', meeting.screenCapture.slice('Uploaded: '.length)));
-    else {
-      if (meeting.screenCapture) tags.append(tag('Screen', meeting.screenCapture));
-      if (meeting.microphone) tags.append(tag('Mic', meeting.microphone));
-      if (meeting.tracks.some(t => t.kind === 'system')) tags.append(tag('System sound'));
-    }
-    const t = meeting.transcription, n = meeting.notes;
-    if (meeting.status === 'READY' && t) tags.append(tag('Language', t.languages.length ? t.languages.join(', ').toUpperCase() : 'no speech'));
+    if (uploaded) line.append(el('span', '', meeting.screenCapture.slice('Uploaded: '.length)));
+    if (meeting.status === 'READY' && t) line.append(el('span', '', t.languages.length ? t.languages.join(', ').toUpperCase() : 'No speech'));
     if (meeting.status === 'READY' && n) {
-      tags.append(tag('Decisions', String(n.decisions)));
-      tags.append(tag('Action items', String(n.actionItems)));
+      line.append(fact(n.decisions, n.decisions === 1 ? 'decision' : 'decisions'),
+        fact(n.actionItems, n.actionItems === 1 ? 'action item' : 'action items'));
     }
-    if (tags.childElementCount) div.append(tags);
+    if (meeting.warnings.length) {
+      const k = meeting.warnings.length;
+      const chip = el('button', 'warn-chip', `⚠ ${k} ${k === 1 ? 'warning' : 'warnings'}`);
+      chip.title = openWarnings.has(id) ? 'Hide the warnings' : 'Show the warnings';
+      chip.addEventListener('click', () => {
+        openWarnings.has(id) ? openWarnings.delete(id) : openWarnings.add(id);
+        renderList();
+      });
+      line.append(chip);
+    }
+    if (line.childElementCount) div.append(line);
+    if (openWarnings.has(id)) for (const text of meeting.warnings) div.append(el('div', 'm-msg warn', text));
 
     if (meeting.status === 'PROCESSING' && meeting.processing) {
       const bar = el('div', 'progress');
@@ -1516,90 +1743,113 @@ window.notifyDone = (() => {
       bar.append(fill);
       div.append(bar, el('div', 'path', `${meeting.processing.step}… ${meeting.processing.percent}%`));
     }
-    for (const text of meeting.warnings) div.append(el('div', 'm-msg warn', text));
     if (meeting.error) div.append(el('div', 'm-msg err', meeting.error));
 
-    // Actions: open the results first, file management after the spacer
-    const actions = el('div', 'm-actions');
-    const open = (label, href, primary) => {
-      const a = el('a', `button small${primary ? '' : ' secondary'}`, label);
-      a.href = href;
-      a.target = '_blank';
-      return a;
-    };
-    let notesPanel = null;
-    if (meeting.status === 'READY' && n) {
-      notesPanel = el('div', 'notes');
-      notesPanel.hidden = !openNotes.has(meeting.id);
-      const toggle = el('button', 'small', notesPanel.hidden ? 'Show notes' : 'Hide notes');
-      toggle.addEventListener('click', () => {
-        notesPanel.hidden = !notesPanel.hidden;
-        notesPanel.hidden ? openNotes.delete(meeting.id) : openNotes.add(meeting.id);
-        toggle.textContent = notesPanel.hidden ? 'Show notes' : 'Hide notes';
-        if (!notesPanel.hidden) fillNotes(notesPanel, meeting.id);
-      });
-      actions.append(toggle);
-      if (!notesPanel.hidden) fillNotes(notesPanel, meeting.id);
-    }
+    // Notes | Transcript | Recording: one is shown inside the card, a second click closes it
     if (meeting.status === 'READY') {
-      if (t && t.segments > 0) actions.append(open('Transcript', `/api/meetings/${meeting.id}/transcript`, !n));
-      if (meeting.tracks.some(track => track.kind === 'screen' || track.kind === 'audio')) {
-        actions.append(open('Recording', `/api/meetings/${meeting.id}/recording`));
+      const kinds = [];
+      if (n) kinds.push(['notes', 'Notes']);
+      if (t && t.segments > 0) kinds.push(['transcript', 'Transcript']);
+      if (meeting.tracks.some(tr => tr.kind === 'screen' || tr.kind === 'audio')) kinds.push(['recording', 'Recording']);
+      if (kinds.length) {
+        const current = openPanel.get(id);
+        const tabs = el('div', 'seg-tabs');
+        for (const [kind, label] of kinds) {
+          const tab = el('button', `seg${current === kind ? ' active' : ''}`, label);
+          tab.setAttribute('aria-pressed', String(current === kind));
+          tab.addEventListener('click', () => {
+            openPanel.get(id) === kind ? openPanel.delete(id) : openPanel.set(id, kind);
+            renderList();
+          });
+          tabs.append(tab);
+        }
+        div.append(tabs);
+        if (current && kinds.some(([kind]) => kind === current)) div.append(panelFor(meeting, current));
       }
     }
-    actions.append(el('span', 'spacer'));
-    if (folder) {
-      const openFolder = el('button', 'link', 'Open folder');
-      openFolder.addEventListener('click', () =>
-        api(`/api/meetings/${meeting.id}/open-folder`, { method: 'POST' }).catch(e => showError(e.message)));
-      actions.append(openFolder);
-    }
-    if (['READY', 'FAILED'].includes(meeting.status) && meeting.tracks.length) {
-      const again = el('button', 'link', 'Process again');
-      again.addEventListener('click', () => {
-        notesCache.delete(meeting.id);
-        api(`/api/meetings/${meeting.id}/process`, { method: 'POST' }).then(loadMeetings).catch(e => showError(e.message));
-      });
-      actions.append(again);
-    }
-    if (actions.childElementCount > 1) div.append(actions);
-    if (notesPanel) div.append(notesPanel);
 
     // Technical details stay out of the way until asked for
     const lines = [];
+    if (!uploaded) {
+      if (meeting.screenCapture) lines.push(`Screen: ${meeting.screenCapture}`);
+      if (meeting.microphone) lines.push(`Microphone: ${meeting.microphone}`);
+      lines.push(`Other participants: ${meeting.tracks.some(tr => tr.kind === 'system') ? 'recorded' : 'not recorded'}`);
+    }
     if (t) lines.push(`Speech: ${t.model} on ${t.backend}, ${t.segments} segments`);
     if (n) lines.push(`Notes: ${n.model}`);
     if (folder) lines.push(`Folder: ${folder}`);
     if (lines.length) {
       const details = document.createElement('details');
-      details.open = openDetails.has(meeting.id);
-      details.addEventListener('toggle', () => details.open ? openDetails.add(meeting.id) : openDetails.delete(meeting.id));
-      details.append(el('summary', '', 'Details'), ...lines.map(line => el('div', 'path', line)));
+      details.open = openDetails.has(id);
+      details.addEventListener('toggle', () => details.open ? openDetails.add(id) : openDetails.delete(id));
+      details.append(el('summary', '', 'Details'), ...lines.map(text => el('div', 'path', text)));
       div.append(details);
     }
     return div;
   }
 
-  // ---------- notes inside the card ----------
-  async function fillNotes(panel, id) {
-    if (!notesCache.has(id)) {
-      panel.replaceChildren(el('span', 'muted', 'Loading the notes…'));
+  async function deleteMeeting(meeting) {
+    if (!confirm(`Delete "${meeting.title || 'this meeting'}"?\n\nThe whole meeting folder is removed from this computer: ` +
+        'screen recording, audio, transcript and notes. This cannot be undone.')) return;
+    try {
+      await api(`/api/meetings/${meeting.id}`, { method: 'DELETE' });
+      forget(meeting.id);
+      openPanel.delete(meeting.id);
+      hideError();
+    } catch (e) {
+      showError(e.message);
+    }
+    loadMeetings();
+  }
+
+  // ---------- notes, transcript and recording inside the card ----------
+  function panelFor(meeting, kind) {
+    const cached = panels.get(meeting.id);
+    if (cached && cached.kind === kind) return cached.node;
+    const id = meeting.id;
+    let node;
+    if (kind === 'recording') {
+      node = el('div', 'panel');
+      const url = `/api/meetings/${id}/recording`;
+      const media = document.createElement(meeting.tracks.some(tr => tr.kind === 'screen') ? 'video' : 'audio');
+      media.controls = true;
+      media.preload = 'metadata';
+      media.src = url;
+      const open = el('a', 'link', 'Open in a new tab');
+      open.href = url;
+      open.target = '_blank';
+      const foot = el('p', 'foot');
+      foot.append(open);
+      node.append(media, foot);
+    } else {
+      node = el('div', `panel notes${kind === 'transcript' ? ' transcript' : ''}`);
+      fillText(node, id, kind);
+    }
+    panels.set(id, { kind, node });
+    return node;
+  }
+
+  async function fillText(panel, id, kind) {
+    const key = `${kind}:${id}`, url = `/api/meetings/${id}/${kind}`;
+    if (!textCache.has(key)) {
+      panel.replaceChildren(el('span', 'muted', kind === 'notes' ? 'Loading the notes…' : 'Loading the transcript…'));
       try {
-        const res = await fetch(`/api/meetings/${id}/notes`);
+        const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        notesCache.set(id, await res.text());
+        textCache.set(key, await res.text());
       } catch (e) {
-        panel.replaceChildren(el('span', 'muted', `Cannot load the notes (${e.message}).`));
+        panel.replaceChildren(el('span', 'muted', `Cannot load the ${kind} (${e.message}).`));
         return;
       }
     }
-    panel.innerHTML = markdownToHtml(notesCache.get(id), id);
+    const body = el('div', 'body');
+    body.innerHTML = markdownToHtml(textCache.get(key), id);   // escaped by markdownToHtml
     const raw = el('a', 'link', 'Open as text');
-    raw.href = `/api/meetings/${id}/notes`;
+    raw.href = url;
     raw.target = '_blank';
     const foot = el('p', 'foot');
     foot.append(raw);
-    panel.append(foot);
+    panel.replaceChildren(body, foot);
   }
 
   // The small Markdown subset MarkdownExporter writes: headings, lists, task boxes, bold, italics, code, links, rules.

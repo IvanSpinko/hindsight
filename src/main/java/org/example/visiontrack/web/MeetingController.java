@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,6 +31,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -98,6 +100,27 @@ public class MeetingController {
         }
         jobs.submit(id);
         return ResponseEntity.accepted().body(response(store.find(id).orElseThrow()));
+    }
+
+    /** Deletes the meeting folder: recording, audio, transcript and notes. Not while it is recorded or processed. */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable("id") String id) {
+        Meeting meeting = store.find(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found"));
+        if (meeting.status() == Meeting.Status.RECORDING || recorder.activeId().filter(id::equals).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Stop the recording first");
+        }
+        if (meeting.status() == Meeting.Status.PROCESSING) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The meeting is still being processed");
+        }
+        try {
+            store.delete(id);
+        } catch (NoSuchFileException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found");
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Some files could not be deleted (are they open in another program?): " + e.getMessage());
+        }
+        return ResponseEntity.noContent().build();
     }
 
     /** Adds an existing recording (audio or video file); it is prepared, transcribed and summarised in the background. */

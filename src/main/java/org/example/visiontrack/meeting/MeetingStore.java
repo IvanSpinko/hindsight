@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
@@ -118,6 +119,29 @@ public class MeetingStore {
         }
         meetings.sort(Comparator.comparing(Meeting::startedAt, Comparator.nullsLast(Comparator.reverseOrder())));
         return meetings;
+    }
+
+    /**
+     * Deletes the meeting folder with everything in it. {@code meeting.json} goes last, so a file that cannot be
+     * deleted (e.g. open in a player) leaves the meeting in the list instead of a folder that is half gone.
+     */
+    public void delete(String id) throws IOException {
+        Path folder = folder(id).orElseThrow(() -> new NoSuchFileException("Meeting " + id));
+        if (!folder.toAbsolutePath().normalize().getParent().equals(root)) {
+            throw new IOException("Not a meeting folder: " + folder);
+        }
+        Path manifest = folder.resolve(MANIFEST);
+        List<Path> paths;
+        try (Stream<Path> walk = Files.walk(folder)) {
+            paths = walk.sorted(Comparator.reverseOrder()).toList();
+        }
+        for (Path path : paths) {
+            if (!path.equals(manifest) && !path.equals(folder)) Files.deleteIfExists(path);
+        }
+        Files.deleteIfExists(manifest);
+        Files.deleteIfExists(folder);
+        folders.remove(id);
+        log.info("Deleted meeting {} ({})", id, folder);
     }
 
     private Optional<Meeting> read(Path folder) {
