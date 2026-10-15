@@ -20,6 +20,12 @@ if (-not $mvn) {
         Select-Object -First 1 -ExpandProperty FullName
 }
 if (-not $mvn) { throw "Maven not found: install it or add it to PATH" }
+# The Oracle installer puts only java.exe on PATH (Common Files\Oracle\Java\javapath), not jpackage
+$jpackage = (Get-Command jpackage -ErrorAction SilentlyContinue).Source
+if (-not $jpackage -and $env:JAVA_HOME -and (Test-Path "$env:JAVA_HOME\bin\jpackage.exe")) {
+    $jpackage = "$env:JAVA_HOME\bin\jpackage.exe"
+}
+if (-not $jpackage) { throw "jpackage not found: install a JDK 21 and set JAVA_HOME or add its bin to PATH" }
 if (-not (Test-Path "models\$Model")) { throw "Model not found: models\$Model" }
 
 Write-Host "1/4 Building the jar..."
@@ -34,7 +40,7 @@ Copy-Item "models\$Model", "models\classes.txt" "$staging\models\"
 
 Write-Host "3/4 Packaging VisionTrack.exe (takes a minute)..."
 if (Test-Path "dist\VisionTrack") { Remove-Item -Recurse -Force "dist\VisionTrack" }
-jpackage --type app-image `
+& $jpackage --type app-image `
     --name VisionTrack `
     --app-version $Version `
     --description "Finds objects in videos" `
