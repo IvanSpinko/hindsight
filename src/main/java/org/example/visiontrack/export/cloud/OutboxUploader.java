@@ -1,5 +1,6 @@
 package org.example.visiontrack.export.cloud;
 
+import org.example.visiontrack.export.RunInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,6 +14,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.DoubleSupplier;
@@ -80,6 +82,31 @@ public class OutboxUploader {
         }
         if (sent > 0) log.info("Uploaded {} export file(s) to the cloud", sent);
         return sent;
+    }
+
+    /** Where the files of a finished run are; the summary is written last, so its place tells the run is done. */
+    public enum RunState { PENDING, RETRYING, UPLOADED }
+
+    /** Empty while the run is still being written or when it has no export files (export off or broken). */
+    public Optional<RunState> state(RunInfo run) {
+        List<Path> waiting = Stream.of(run.summary(), "detections/" + run.partitionPath())
+                .map(outbox::resolve)
+                .flatMap(OutboxUploader::filesUnder)
+                .toList();
+        if (!waiting.isEmpty()) {
+            return Optional.of(waiting.stream().anyMatch(failures::containsKey) ? RunState.RETRYING : RunState.PENDING);
+        }
+        return Files.isRegularFile(uploaded.resolve(run.summary())) ? Optional.of(RunState.UPLOADED) : Optional.empty();
+    }
+
+    private static Stream<Path> filesUnder(Path path) {
+        if (Files.isRegularFile(path)) return Stream.of(path);
+        if (!Files.isDirectory(path)) return Stream.empty();
+        try (Stream<Path> walk = Files.walk(path)) {
+            return walk.filter(Files::isRegularFile).toList().stream();
+        } catch (IOException e) {
+            return Stream.empty();
+        }
     }
 
     String keyFor(Path file) {

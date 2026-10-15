@@ -112,6 +112,7 @@ public class AnalysisJobService {
         double analysisShare = renderAnnotatedVideo ? 0.75 : 1.0;
 
         ExportedRun export = exports.start(id, VideoRunSummary.Source.UPLOAD);
+        jobs.update(id, j -> j.withExportRun(export.run()));
         try {
             Path video = storage.localPath(job.storageKey());
             AnalysisResult result = analyzer.analyze(video, progress.range(0, analysisShare), export);
