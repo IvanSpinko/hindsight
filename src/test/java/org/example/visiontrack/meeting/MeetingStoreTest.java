@@ -5,11 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MeetingStoreTest {
 
@@ -53,5 +55,24 @@ class MeetingStoreTest {
         assertThat(reopened.find("id-1")).contains(meeting);
         assertThat(reopened.findAll()).containsExactly(meeting);
         assertThat(Files.isRegularFile(reopened.folder("id-1").orElseThrow().resolve("meeting.json"))).isTrue();
+    }
+
+    @Test
+    void deleteRemovesTheWholeFolderAndTheListEntry() throws Exception {
+        MeetingStore store = store();
+        Path folder = store.createFolder("id-1", "Sync", LocalDateTime.now());
+        store.save(Meeting.recording("id-1", "Sync", "ddagrab · Monitor 1", "Mic",
+                List.of(new Meeting.Track("mic", "audio/mic.wav", 120, 0)), List.of(4242L)));
+        Files.createDirectories(folder.resolve("audio"));
+        Files.writeString(folder.resolve("audio/mic.wav"), "pcm");
+        Files.writeString(folder.resolve("notes.md"), "# Notes");
+        Path other = store.createFolder("id-2", "Other", LocalDateTime.now());
+
+        store.delete("id-1");
+
+        assertThat(folder).doesNotExist();
+        assertThat(other).isDirectory();
+        assertThat(store.find("id-1")).isEmpty();
+        assertThatThrownBy(() -> store.delete("id-1")).isInstanceOf(NoSuchFileException.class);
     }
 }

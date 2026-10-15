@@ -72,6 +72,8 @@
   #drop[hidden] + .row { margin-top: 0; }
   .link { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); font-weight: 500; cursor: pointer; text-decoration: none; }
   .link:hover { text-decoration: underline; filter: none !important; }
+  .link.danger { color: var(--error); }
+  .m-head .when .del { margin-left: 12px; font-size: 13px; }
   button:disabled { opacity: .5; cursor: not-allowed; }
 
   .progress { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; margin: 16px 0 6px; }
@@ -980,7 +982,15 @@ window.notifyDone = (() => {
     title.append(el('span', `badge ${status}`,
       job.status === 'PROCESSING' ? `Analysing ${job.progressPercent}%` : JOB_STATUS[job.status] || job.status));
     const time = new Date(job.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    head.append(title, el('span', 'when', s ? `${time} · ${clock(s.durationSeconds)}` : time));
+    const when = el('span', 'when', s ? `${time} · ${clock(s.durationSeconds)}` : time);
+    if (job.status === 'COMPLETED' || job.status === 'FAILED') {
+      const del = el('button', 'link danger del', 'Delete');
+      del.title = 'Delete the video with boxes and remove it from the list';
+      del.addEventListener('click', e => { e.stopPropagation(); deleteJob(job, isCurrent); });
+      del.addEventListener('keydown', e => e.stopPropagation());
+      when.append(del);
+    }
+    head.append(title, when);
     item.append(head);
 
     // The most frequent objects, like the filter chips of an opened result
@@ -1007,6 +1017,29 @@ window.notifyDone = (() => {
       item.addEventListener('keydown', e => { if (e.key === 'Enter') openPast(job.id); });
     }
     return item;
+  }
+
+  async function deleteJob(job, isCurrent) {
+    if (!confirm(`Delete "${job.fileName}"?\n\nThe video with boxes and the results are removed from this computer. ` +
+        'Detections already sent to the cloud stay there.')) return;
+    try {
+      const res = await fetch(`/api/analyses/${encodeURIComponent(job.id)}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 404) {
+        const data = parseJson(await res.text());
+        throw new Error(data?.detail || data?.message || `Delete failed (${res.status})`);
+      }
+    } catch (e) {
+      $('error').textContent = e.message;
+      $('error').hidden = false;
+      return;
+    }
+    if (isCurrent || currentJob?.id === job.id) {
+      $('video-card').hidden = true;
+      player.removeAttribute('src');
+      player.load();
+      resetBtn.click();
+    }
+    loadHistory();
   }
 
   function openPast(jobId) {
@@ -1561,6 +1594,23 @@ window.notifyDone = (() => {
         api(`/api/meetings/${meeting.id}/process`, { method: 'POST' }).then(loadMeetings).catch(e => showError(e.message));
       });
       actions.append(again);
+    }
+    if (['RECORDED', 'READY', 'FAILED'].includes(meeting.status)) {
+      const del = el('button', 'link danger', 'Delete');
+      del.addEventListener('click', async () => {
+        const name = meeting.title || 'this meeting';
+        if (!confirm(`Delete "${name}"?\n\nThe whole meeting folder is removed from this computer: ` +
+            'screen recording, audio, transcript and notes. This cannot be undone.')) return;
+        try {
+          await api(`/api/meetings/${meeting.id}`, { method: 'DELETE' });
+          notesCache.delete(meeting.id);
+          hideError();
+        } catch (e) {
+          showError(e.message);
+        }
+        loadMeetings();
+      });
+      actions.append(del);
     }
     if (actions.childElementCount > 1) div.append(actions);
     if (notesPanel) div.append(notesPanel);
