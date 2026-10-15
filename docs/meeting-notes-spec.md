@@ -1,7 +1,7 @@
 # Spec: "Meeting Notes" module for VisionTrack
 
 Version 2.0 · 2026-10-14 · status: approved. Version 2.0 narrows the scope: notes come from **speech only**,
-written by a **local model** (no paid API); the slide detector and the Claude client of version 1.0 are dropped.
+written by a **local model** (no paid API); the slide detector and the cloud AI client of version 1.0 are dropped.
 
 ## 1. Goal
 

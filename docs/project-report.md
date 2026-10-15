@@ -400,7 +400,7 @@ Outside the repository at runtime: `Documents\VisionTrack\Meetings\` (meetings),
 | CUDA 12 runtime, cuBLAS, cuDNN 9 (redistributed DLLs) | | NVIDIA redistribution terms |
 | audio-loopback (own code) | | uses only Windows APIs |
 
-No dependency was added for the meetings module except native tools run as processes; the Claude SDK that was
+No dependency was added for the meetings module except native tools run as processes; the cloud AI SDK that was
 tried on 2026-10-14 was removed together with the decision to use local models only.
 
 ---
@@ -466,7 +466,7 @@ with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call 
 | `62e1999` | stage 2: slide detection and one combined recording (slides removed later) |
 | `65387dc` | stage 3: Whisper on CUDA, Russian + English |
 | `62a7800` | GPU only: clear "NVIDIA GPU required" error, NVENC |
-| `dfe31db` | stage 4: notes from speech with a local model (Gemma), slides and Claude removed |
+| `dfe31db` | stage 4: notes from speech with a local model (Gemma), slides and the cloud AI client removed |
 | `a141c08` | stage 5: system sound, echo filter, free VRAM check |
 | `e188937` | stage 6: upload of recordings, screen at 30 fps |
 

@@ -45,8 +45,7 @@ changes without showing the plan and a cost estimate and getting the user's expl
 ## 2. Rules agreed with the user (keep them)
 - Answer in **Russian**; every file in the repo in **English**, no Cyrillic. Before each commit check the staged
   files for U+0400-U+04FF and for control characters (see section 4, Python escaping).
-- **No attribution** in commits or PRs: no `Co-Authored-By`, no "Generated with Claude Code" (the user rewrote
-  history once to remove them).
+- **Single author** in commits and PRs: no co-author or tool attribution lines.
 - One stage at a time: short plan per file → code → `mvn package` → acceptance in the running app → commit → push.
 - **GPU only**, no CPU fallbacks in new code. Without CUDA: a clear "... needs an NVIDIA graphics card with CUDA
   (driver 528 or newer)" message (`GpuRequiredException`).
@@ -79,7 +78,7 @@ changes without showing the plan and a cost estimate and getting the user's expl
   data sources, block and rich-text limits, rate limits, file uploads.
 - Settings: `%LOCALAPPDATA%\VisionTrack\settings.json` with the integration token and the target database or page
   (edited by hand until stage 8). Never log or commit it; `settings.json` is already in `.gitignore`. A small
-  `SettingsService` (an earlier version for the Claude key was written and deleted; same idea: read on each use,
+  `SettingsService` (read on each use,
   `@JsonIgnoreProperties(ignoreUnknown = true)`, log no content on parse errors, `@Autowired` on the public
   constructor if there are two).
 - `NotionExporter implements NotesExporter` (`NotesExporter` and `MarkdownExporter` exist): database row (Name,
@@ -90,7 +89,7 @@ changes without showing the plan and a cost estimate and getting the user's expl
   optional automatic export after processing. A "Create databases" button and an optional "Tasks" database with a
   relation to the meeting are nice-to-have.
 - Tests: block building and limit splitting, request sequence against a stub HTTP server
-  (`com.sun.net.httpserver.HttpServer` worked well for the deleted Claude client test).
+  (`com.sun.net.httpserver.HttpServer` is enough for that).
 - Acceptance needs the user's Notion integration token and a database shared with the integration.
 
 ### 3.3 Stage 8: Settings tab
@@ -138,6 +137,6 @@ Mention the AGPL-3.0 licence of the Ultralytics YOLO weights to the user before 
   name the language explicitly.
 - NVENC needs `-bf 0` (otherwise the first timestamps of a part shift, and it refuses short GOPs) and
   `-forced-idr 1` (otherwise the segment muxer cannot cut parts).
-- `AnthropicClient`-style SDKs, Kotlin stdlib etc. were removed with the Claude client; keep dependencies minimal.
+- Keep dependencies minimal: no vendor SDKs (and their Kotlin stdlib) for a few HTTP calls.
 - No-GPU check: start the app with `CUDA_VISIBLE_DEVICES=-1` (NVENC still works then; a PC without NVIDIA cannot
   be simulated here).
