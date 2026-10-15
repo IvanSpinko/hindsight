@@ -1,7 +1,7 @@
 package org.example.visiontrack.web;
 
 import org.example.visiontrack.detection.Detection;
-import org.example.visiontrack.detection.OnnxYoloDetector;
+import org.example.visiontrack.detection.ObjectDetectorProvider;
 import org.example.visiontrack.detection.RgbImage;
 import org.example.visiontrack.export.LiveExportSessions;
 import org.springframework.http.HttpStatus;
@@ -27,11 +27,11 @@ public class LiveDetectionController {
 
     public record LiveResult(int width, int height, long inferenceMillis, List<LiveObject> objects) {}
 
-    private final OnnxYoloDetector detector;
+    private final ObjectDetectorProvider detectors;
     private final LiveExportSessions exportSessions;
 
-    public LiveDetectionController(OnnxYoloDetector detector, LiveExportSessions exportSessions) {
-        this.detector = detector;
+    public LiveDetectionController(ObjectDetectorProvider detectors, LiveExportSessions exportSessions) {
+        this.detectors = detectors;
         this.exportSessions = exportSessions;
     }
 
@@ -44,7 +44,7 @@ public class LiveDetectionController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The frame is not a valid image");
         }
         long started = System.nanoTime();
-        List<Detection> detections = detector.detect(toRgb(image));
+        List<Detection> detections = detectors.use(detector -> detector.detect(toRgb(image)));
         long inferenceMillis = (System.nanoTime() - started) / 1_000_000;
         exportSessions.record(session, image.getWidth(), image.getHeight(), detections);
 

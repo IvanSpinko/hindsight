@@ -65,6 +65,7 @@ public class AnalysisJobService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The upload has no file name");
         }
         validateExtension(fileName);
+        analyzer.checkAvailable();
 
         String id = UUID.randomUUID().toString();
         String key;

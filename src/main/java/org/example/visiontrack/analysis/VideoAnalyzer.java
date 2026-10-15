@@ -7,6 +7,7 @@ import org.example.visiontrack.analysis.AnalysisResult.Position;
 import org.example.visiontrack.config.VisionTrackProperties;
 import org.example.visiontrack.detection.Detection;
 import org.example.visiontrack.detection.Detection.BoundingBox;
+import org.example.visiontrack.detection.ObjectDetectorProvider;
 import org.example.visiontrack.detection.OnnxYoloDetector;
 import org.example.visiontrack.tracking.ObjectTracker;
 import org.example.visiontrack.tracking.ObjectTracker.TrackPoint;
@@ -28,12 +29,17 @@ public class VideoAnalyzer {
 
     private static final Logger log = LoggerFactory.getLogger(VideoAnalyzer.class);
 
-    private final OnnxYoloDetector detector;
+    private final ObjectDetectorProvider detectors;
     private final VisionTrackProperties.Analysis settings;
 
-    public VideoAnalyzer(OnnxYoloDetector detector, VisionTrackProperties properties) {
-        this.detector = detector;
+    public VideoAnalyzer(ObjectDetectorProvider detectors, VisionTrackProperties properties) {
+        this.detectors = detectors;
         this.settings = properties.analysis();
+    }
+
+    /** Fails fast with the reason when object detection is unavailable (e.g. no NVIDIA GPU). */
+    public void checkAvailable() {
+        detectors.check();
     }
 
     public AnalysisResult analyze(Path video, ProgressListener progress) {
@@ -41,6 +47,11 @@ public class VideoAnalyzer {
     }
 
     public AnalysisResult analyze(Path video, ProgressListener progress, FrameObserver observer) {
+        return detectors.use(detector -> analyze(detector, video, progress, observer));
+    }
+
+    private AnalysisResult analyze(OnnxYoloDetector detector, Path video, ProgressListener progress,
+                                   FrameObserver observer) {
         long started = System.nanoTime();
         long sampleIntervalMicros = settings.sampleFps() > 0 ? Math.round(1_000_000 / settings.sampleFps()) : 0;
         ObjectTracker tracker = new ObjectTracker(settings.trackIouThreshold(),

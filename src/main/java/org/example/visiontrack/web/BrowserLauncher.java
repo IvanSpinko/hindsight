@@ -1,5 +1,6 @@
 package org.example.visiontrack.web;
 
+import org.example.visiontrack.meeting.RecordingStateChanged;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,15 +13,24 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
+import javax.swing.Timer;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.EventQueue;
+import java.awt.Graphics2D;
 import java.awt.GraphicsEnvironment;
 import java.awt.MenuItem;
 import java.awt.PopupMenu;
 import java.awt.SystemTray;
+import java.awt.RenderingHints;
 import java.awt.TrayIcon;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -35,6 +45,12 @@ public class BrowserLauncher {
     private final Environment environment;
     private final ConfigurableApplicationContext context;
     private final boolean trayIcon;
+
+    // Tray icon state, touched on the AWT event thread only
+    private TrayIcon tray;
+    private BufferedImage idleImage;
+    private BufferedImage recordingImage;
+    private Timer recordingTimer;
 
     public BrowserLauncher(Environment environment, ConfigurableApplicationContext context,
                            @Value("${visiontrack.tray-icon:false}") boolean trayIcon) {
@@ -65,7 +81,8 @@ public class BrowserLauncher {
             menu.addSeparator();
             menu.add(quitItem);
 
-            TrayIcon icon = new TrayIcon(ImageIO.read(image), "VisionTrack", menu);
+            BufferedImage base = ImageIO.read(image);
+            TrayIcon icon = new TrayIcon(base, "VisionTrack", menu);
             icon.setImageAutoSize(true);
             icon.addActionListener(e -> open(url));
             quitItem.addActionListener(e -> {
@@ -73,9 +90,54 @@ public class BrowserLauncher {
                 new Thread(() -> System.exit(SpringApplication.exit(context)), "quit").start();
             });
             SystemTray.getSystemTray().add(icon);
+            EventQueue.invokeLater(() -> {
+                tray = icon;
+                idleImage = base;
+                recordingImage = withRecordingDot(base);
+            });
         } catch (Exception e) {
             log.warn("Could not add the tray icon: {}", e.getMessage());
         }
+    }
+
+    /** While a meeting is recorded the tray icon gets a red dot and the tooltip shows "● REC 00:12:34". */
+    @EventListener
+    public void onRecordingStateChanged(RecordingStateChanged event) {
+        EventQueue.invokeLater(() -> {
+            if (tray == null) return;
+            if (recordingTimer != null) recordingTimer.stop();
+            if (event.recording()) {
+                tray.setImage(recordingImage);
+                recordingTimer = new Timer(1000, e -> tray.setToolTip("VisionTrack ● REC " + elapsed(event.startedAt())));
+                recordingTimer.setInitialDelay(0);
+                recordingTimer.start();
+            } else {
+                recordingTimer = null;
+                tray.setImage(idleImage);
+                tray.setToolTip("VisionTrack");
+            }
+        });
+    }
+
+    private static String elapsed(Instant since) {
+        long s = Math.max(0, Duration.between(since, Instant.now()).toSeconds());
+        return "%02d:%02d:%02d".formatted(s / 3600, s / 60 % 60, s % 60);
+    }
+
+    private static BufferedImage withRecordingDot(BufferedImage base) {
+        BufferedImage image = new BufferedImage(base.getWidth(), base.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = image.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.drawImage(base, 0, 0, null);
+        int d = Math.max(6, base.getWidth() / 2);
+        int x = base.getWidth() - d, y = base.getHeight() - d;
+        g.setColor(new Color(0xE5, 0x1C, 0x23));
+        g.fillOval(x, y, d - 1, d - 1);
+        g.setColor(Color.WHITE);
+        g.setStroke(new BasicStroke(Math.max(1f, d / 8f)));
+        g.drawOval(x, y, d - 1, d - 1);
+        g.dispose();
+        return image;
     }
 
     public static void open(String url) {

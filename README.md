@@ -23,6 +23,35 @@ Open http://localhost:8080, drop in a video and wait for the results. Settings l
 | GET    | `/api/analyses`       | all jobs, newest first                                         |
 | GET    | `/actuator/health`    | health check for load balancers                                |
 
+### Meetings (Windows, local requests only)
+
+| Method | Path                              | Description                                               |
+|--------|-----------------------------------|-----------------------------------------------------------|
+| GET    | `/api/meetings/devices`           | monitors and microphones (`?refresh=true` probes again)   |
+| POST   | `/api/meetings/start`             | `{"title", "monitor", "microphone"}` → starts recording   |
+| POST   | `/api/meetings/{id}/stop`         | stops, builds `recording.mp4` (screen + sound) and starts processing |
+| GET    | `/api/meetings`, `/api/meetings/{id}` | recorded meetings (read from their folders)           |
+| POST   | `/api/meetings/import`            | multipart `file`: an audio or video recording to process like a meeting |
+| POST   | `/api/meetings/{id}/process`      | runs the processing again                                 |
+| GET    | `/api/meetings/{id}/notes`        | the notes (`notes.md`)                                    |
+| GET    | `/api/meetings/{id}/transcript`   | the transcript (`transcript.md`)                          |
+| GET    | `/api/meetings/{id}/recording`    | the screen recording with sound, playable in the browser  |
+| POST   | `/api/meetings/{id}/open-folder`  | opens the meeting folder in Explorer                      |
+
+Recordings go to `Documents\VisionTrack\Meetings\<date>_<time>_<title>\`. The screen (ffmpeg `ddagrab`,
+falling back to `gdigrab`, 30 fps, encoded by NVENC), the microphone (`dshow`, 16 kHz mono) and the system sound,
+i.e. the other participants (WASAPI loopback via `tools\audio-loopback\audio-loopback.exe` piped into ffmpeg),
+are captured by the ffmpeg bundled with JavaCV in separate processes, written in 5-minute parts, so a crash keeps what was
+recorded; unfinished meetings are joined on the next start. The screen is only for people to rewatch: the notes
+come from what was said. After "Stop" the meeting is processed in the background (`RECORDED → PROCESSING → READY`):
+whisper.cpp transcribes both sounds as "Me" and "Other participants" (`transcript.md`, `transcript.json`; Silero
+VAD finds the speech, each piece of up to 30 s gets its own language, Russian or English, large-v3-turbo on CUDA;
+echoes of the speakers in the microphone are removed), then a local model, Gemma 4 12B on
+llama.cpp, writes the notes (`notes.md`, `notes.json`: summary, decisions, action items with owners and due dates,
+timeline, open questions). Everything runs offline on the GPU. Install the programs and models once with
+`powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1` (downloads ~10 GB into `tools\` and
+`models\` and builds the system sound helper with the C# compiler built into Windows); without them meetings are still recorded, only the transcript or the notes are skipped.
+
 ```bash
 curl -F "file=@street.mp4" http://localhost:8080/api/analyses
 curl http://localhost:8080/api/analyses/<id>
@@ -53,10 +82,11 @@ upload ─► VideoStorage ─► job queue ─► VideoAnalyzer
 | `web`         | REST controller, error responses                             |
 | `job`         | job lifecycle, background execution, `JobRepository`         |
 | `analysis`    | orchestrates a video run, builds the result                  |
-| `detection`   | ONNX Runtime YOLO detector (CUDA → DirectML → CPU)          |
+| `detection`   | ONNX Runtime YOLO detector (CUDA only)                       |
 | `tracking`    | links detections across frames                               |
 | `video`       | FFmpeg decoding and encoding                                 |
 | `storage`     | where uploads are kept (`VideoStorage`)                      |
+| `meeting`     | meeting recording: ffmpeg captures, segments, `meeting.json` |
 | `export`      | detection events as JSON Lines, outbox, optional S3 upload   |
 
 ### Tuning the count
