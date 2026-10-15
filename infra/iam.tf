@@ -43,7 +43,7 @@ resource "aws_iam_role_policy" "transform" {
 # Used through a profile in ~/.aws/config:
 #   [profile visiontrack-uploader]
 #   role_arn = <output uploader_role_arn>
-#   source_profile = MyAWS
+#   source_profile = main
 #   region = eu-west-1
 
 data "aws_iam_policy_document" "uploader_trust" {
