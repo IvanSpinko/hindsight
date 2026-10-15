@@ -2,7 +2,7 @@
 budget_email = "you@example.com"
 
 # Optional overrides
-# aws_profile          = "MyAWS"
+# aws_profile          = "main"
 # region               = "eu-west-1"
 # budget_limit_usd     = 10
 # budget_alerts_usd    = [5, 10]

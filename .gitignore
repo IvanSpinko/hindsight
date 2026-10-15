@@ -62,9 +62,10 @@ __pycache__/
 infra/.terraform/
 infra/*.tfstate
 infra/*.tfstate.*
+infra/terraform.tfstate.d/
 infra/terraform.tfvars
 infra/build/
-infra/tfplan
+infra/tfplan*
 
 # Whisper and the notes model (llama.cpp, whisper.cpp binaries and models, fetched by packaging/get-models.ps1)
 tools/

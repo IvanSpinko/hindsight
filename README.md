@@ -155,7 +155,7 @@ Tests: `cd infra/lambda && python -m venv .venv && .venv/Scripts/pip install -r 
 
 ### Set up
 
-Requirements: AWS CLI v2, Terraform ≥ 1.9, a named profile with admin rights (here `MyAWS`).
+Requirements: AWS CLI v2, Terraform ≥ 1.9, a named profile with admin rights in the target account (here `main`, set up with `aws configure --profile main`).
 
 ```bash
 cd infra
@@ -198,7 +198,7 @@ Open Athena, choose the workgroup `visiontrack` and run the saved queries from
 per run, rejected records by reason. From the CLI:
 
 ```bash
-aws athena start-query-execution --work-group visiontrack --profile MyAWS \
+aws athena start-query-execution --work-group visiontrack --profile main \
     --query-string "$(cat analytics/queries/detections_per_class.sql)"
 ```
 
@@ -212,7 +212,7 @@ scanned (10 MB minimum per query) and the 1 GB cutoff caps any single query. The
 
 ```bash
 cd infra
-aws s3 rm s3://<bucket> --recursive --profile MyAWS   # current objects
+aws s3 rm s3://<bucket> --recursive --profile main   # current objects
 terraform apply -var force_destroy_bucket=true          # lets Terraform delete the remaining versions
 terraform destroy
 ```

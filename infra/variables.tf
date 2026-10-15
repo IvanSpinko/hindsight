@@ -7,7 +7,7 @@ variable "region" {
 variable "aws_profile" {
   description = "Named profile from ~/.aws used by Terraform (an admin-capable identity)."
   type        = string
-  default     = "MyAWS"
+  default     = "main"
 }
 
 variable "project" {
