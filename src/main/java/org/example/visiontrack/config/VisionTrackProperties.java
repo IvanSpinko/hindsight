@@ -19,7 +19,8 @@ public record VisionTrackProperties(
         @Valid @NotNull Model model,
         @Valid @NotNull Analysis analysis,
         @Valid @NotNull Storage storage,
-        @Valid @NotNull Jobs jobs
+        @Valid @NotNull Jobs jobs,
+        @Valid @NotNull Export export
 ) {
 
     public record Model(
@@ -54,5 +55,12 @@ public record VisionTrackProperties(
     public record Jobs(
             @Min(1) int concurrency,
             @Min(0) int queueCapacity
+    ) {}
+
+    /** Detections written as JSON Lines for every run (always on); see the export package. */
+    public record Export(
+            @NotNull Path directory,
+            @Min(1) int liveBatchSeconds,
+            @Min(5) int liveIdleTimeoutSeconds
     ) {}
 }

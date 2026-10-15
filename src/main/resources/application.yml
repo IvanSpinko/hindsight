@@ -52,3 +52,18 @@ visiontrack:
   jobs:
     concurrency: 1
     queue-capacity: 20
+  # Every run's detections as gzipped JSON Lines (in-progress/ -> outbox/ -> uploaded/)
+  export:
+    directory: data/exports
+    # Live camera: close a part file every N seconds; end a session after this much silence
+    live-batch-seconds: 10
+    live-idle-timeout-seconds: 60
+  cloud:
+    export:
+      # Upload outbox files to S3 (raw/ prefix). Off by default: the app works fully offline.
+      # Credentials come from the AWS default chain (e.g. AWS_PROFILE), never from this file.
+      enabled: false
+      bucket: ""
+      prefix: ""
+      region: eu-west-1
+      scan-interval-ms: 15000
