@@ -549,6 +549,13 @@
   const cam = $('cam'), overlay = $('cam-overlay'), ctx = overlay.getContext('2d');
   const grab = document.createElement('canvas');
   let stream = null, running = false, last = null, frames = 0, fpsSince = 0, fps = 0;
+  let session = null;   // one export run per camera start (X-Live-Session header)
+
+  function endSession() {
+    if (session) navigator.sendBeacon(`/api/live/sessions/${session}/stop`);
+    session = null;
+  }
+  window.addEventListener('pagehide', endSession);
 
   // Mode switch
   document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
@@ -593,6 +600,7 @@
     $('cam-stop').hidden = false;
     await fillCameraList();
     running = true;
+    session = crypto.randomUUID();
     frames = 0;
     fpsSince = performance.now();
     detectLoop();
@@ -600,6 +608,7 @@
 
   function stop() {
     running = false;
+    endSession();
     if (stream) stream.getTracks().forEach(t => t.stop());
     stream = null;
     cam.srcObject = null;
@@ -633,7 +642,9 @@
       grab.getContext('2d').drawImage(cam, 0, 0, grab.width, grab.height);
       const blob = await new Promise(r => grab.toBlob(r, 'image/jpeg', 0.8));
       try {
-        const res = await fetch('/api/live/detect', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
+        const headers = { 'Content-Type': 'image/jpeg' };
+        if (session) headers['X-Live-Session'] = session;
+        const res = await fetch('/api/live/detect', { method: 'POST', headers, body: blob });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const result = await res.json();
         if (!running) break;
