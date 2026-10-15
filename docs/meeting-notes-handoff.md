@@ -28,12 +28,17 @@ rules agreed with the user, the next tasks with concrete steps, and the traps me
 | 5 system sound (WASAPI loopback), echo filter, free VRAM check | done | `a141c08` |
 | 6 upload existing recordings, screen at 30 fps | done | `e188937` |
 | full project report | done | `5a28de7` |
+| cloud data pipeline (detections → S3 → Lambda → Athena), branch `aws-data-pipeline` | done, applied in AWS | `f13a36e` |
+| `meeting-notes` merged into `aws-data-pipeline` (meetings + cloud export in one app) | done | `bd62316` |
 | 7 Notion export | next | |
 | 8 Settings tab | todo | |
 | 9 build for a friend | todo | |
 
-Repository https://github.com/IvanSpinko/visiontrack-object-detection-aws (remote `origin`). Merge
-`meeting-notes` into `main` only when the user asks (pull request).
+Repository https://github.com/IvanSpinko/visiontrack-object-detection-aws (remote `origin`). Work continues on
+`aws-data-pipeline`, which contains everything; merge it into `main` only when the user asks (pull request).
+The cloud pipeline is described in README, "Cloud data pipeline". Terraform state is local in
+`infra/terraform.tfstate` (gitignored, do not delete); never run `terraform apply`/`destroy` or other AWS
+changes without showing the plan and a cost estimate and getting the user's explicit OK.
 
 ## 2. Rules agreed with the user (keep them)
 - Answer in **Russian**; every file in the repo in **English**, no Cyrillic. Before each commit check the staged
@@ -61,8 +66,8 @@ Repository https://github.com/IvanSpinko/visiontrack-object-detection-aws (remot
   Verify by starting and stopping the app several times; then delete the old `hs_err_pid*.log` files.
 - **Bind the default profile to 127.0.0.1** (`server.address`), so video analysis and the live camera are not
   reachable from the LAN; the desktop profile already does this.
-- **Docker/AWS path is outdated** (CPU inference was removed): ask the user whether to drop it from README/Dockerfile
-  or move the image to an NVIDIA CUDA base with `--gpus all`. Also remove the `-CpuOnly` switch from
+- **Dockerfile is outdated** (CPU inference was removed); README marks it "not maintained", AWS now means the data
+  pipeline. Ask the user whether to delete it. Also remove the `-CpuOnly` switch from
   `packaging/build-desktop.ps1`.
 - `packaging/README.txt` still says "the first start takes 10-30 seconds while the model loads"; YOLO now loads on
   first use.
