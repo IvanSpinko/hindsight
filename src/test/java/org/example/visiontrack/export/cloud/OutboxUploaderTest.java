@@ -1,5 +1,7 @@
 package org.example.visiontrack.export.cloud;
 
+import org.example.visiontrack.export.RunInfo;
+import org.example.visiontrack.export.VideoRunSummary;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.core.exception.SdkClientException;
@@ -16,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -118,6 +121,31 @@ class OutboxUploaderTest {
         assertThat(Duration.between(clock.instant().minus(Duration.ofHours(1)), backoff.nextAttempt()))
                 .isEqualTo(Duration.ofMinutes(15));
         assertThat(file).isRegularFile();
+    }
+
+    @Test
+    void stateFollowsTheRunFromOutboxToCloud() throws Exception {
+        RunInfo run = new RunInfo(UUID.fromString("0f8fad5b-d9cb-469f-a165-70867728950e"), "video",
+                VideoRunSummary.Source.UPLOAD, Instant.parse("2026-10-15T10:00:00Z"));
+        RunInfo other = new RunInfo(UUID.randomUUID(), "video", VideoRunSummary.Source.UPLOAD,
+                Instant.parse("2026-10-15T10:00:00Z"));
+        OutboxUploader uploader = uploader();
+        assertThat(uploader.state(run)).isEmpty();
+
+        outboxFile(PART);
+        outboxFile(RUN);
+        assertThat(uploader.state(run)).contains(OutboxUploader.RunState.PENDING);
+        assertThat(uploader.state(other)).isEmpty();
+
+        when(s3.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenThrow(SdkClientException.create("Unable to execute HTTP request"))
+                .thenReturn(PutObjectResponse.builder().build());
+        uploader.uploadPending(); // the part fails, the summary goes through
+        assertThat(uploader.state(run)).contains(OutboxUploader.RunState.RETRYING);
+
+        clock.advance(Duration.ofMinutes(1));
+        uploader.uploadPending();
+        assertThat(uploader.state(run)).contains(OutboxUploader.RunState.UPLOADED);
     }
 
     @Test

@@ -5,6 +5,8 @@ for this note. **How everything works is in `docs/project-report.md`** (read sec
 the requirements are in `docs/meeting-notes-spec.md` (version 2.0). This file is only: what to do first, the
 rules agreed with the user, the next tasks with concrete steps, and the traps met so far.
 
+**Next iteration (quick fixes + Notion export) is specified in `docs/next-iteration.md`; start there.**
+
 ## 0. First five minutes
 1. `git status` / `git log --oneline -5` on `meeting-notes`; expect `5a28de7` or later and only `.idea/vcs.xml`
    untracked (leave it out of commits).

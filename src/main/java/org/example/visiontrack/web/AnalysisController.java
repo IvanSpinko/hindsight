@@ -2,9 +2,11 @@ package org.example.visiontrack.web;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.example.visiontrack.analysis.AnalysisResult;
+import org.example.visiontrack.export.cloud.OutboxUploader;
 import org.example.visiontrack.job.AnalysisJob;
 import org.example.visiontrack.job.AnalysisJob.JobStatus;
 import org.example.visiontrack.job.AnalysisJobService;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
@@ -29,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @RestController
@@ -46,21 +49,37 @@ public class AnalysisController {
             Instant finishedAt,
             String error,
             String annotatedVideoUrl,
+            String cloud,
+            Summary summary,
             AnalysisResult result
     ) {
 
-        static AnalysisJobResponse from(AnalysisJob job, boolean includeResult) {
+        /** What the list of past analyses shows without loading every object track. */
+        public record Summary(int totalObjects, double durationSeconds, List<AnalysisResult.LabelCount> counts) {
+
+            static Summary of(AnalysisResult result) {
+                return result == null ? null
+                        : new Summary(result.totalObjects(), result.video().durationSeconds(), result.counts());
+            }
+        }
+
+        /** {@code cloud}: pending, retrying or uploaded; null when cloud export is off or the run has no files. */
+        static AnalysisJobResponse from(AnalysisJob job, String cloud, boolean includeResult) {
             return new AnalysisJobResponse(job.id(), job.fileName(), job.status(), job.progressPercent(),
                     job.createdAt(), job.startedAt(), job.finishedAt(), job.error(),
                     job.annotatedVideoKey() == null ? null : "/api/analyses/" + job.id() + "/video",
+                    cloud,
+                    includeResult ? null : Summary.of(job.result()),
                     includeResult ? job.result() : null);
         }
     }
 
     private final AnalysisJobService service;
+    private final ObjectProvider<OutboxUploader> cloudUploads;
 
-    public AnalysisController(AnalysisJobService service) {
+    public AnalysisController(AnalysisJobService service, ObjectProvider<OutboxUploader> cloudUploads) {
         this.service = service;
+        this.cloudUploads = cloudUploads;
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -74,18 +93,18 @@ public class AnalysisController {
         }
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}").buildAndExpand(job.id()).toUri();
-        return ResponseEntity.accepted().location(location).body(AnalysisJobResponse.from(job, false));
+        return ResponseEntity.accepted().location(location).body(response(job, false));
     }
 
     @GetMapping
     public List<AnalysisJobResponse> list() {
-        return service.findAll().stream().map(job -> AnalysisJobResponse.from(job, false)).toList();
+        return service.findAll().stream().map(job -> response(job, false)).toList();
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<AnalysisJobResponse> get(@PathVariable("id") String id) {
         return service.find(id)
-                .map(job -> ResponseEntity.ok(AnalysisJobResponse.from(job, true)))
+                .map(job -> ResponseEntity.ok(response(job, true)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -105,5 +124,12 @@ public class AnalysisController {
                 .contentType(MediaType.parseMediaType("video/mp4"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(new FileSystemResource(video.get()));
+    }
+
+    private AnalysisJobResponse response(AnalysisJob job, boolean includeResult) {
+        OutboxUploader uploads = cloudUploads.getIfAvailable();
+        String cloud = uploads == null || job.exportRun() == null ? null
+                : uploads.state(job.exportRun()).map(state -> state.name().toLowerCase(Locale.ROOT)).orElse(null);
+        return AnalysisJobResponse.from(job, cloud, includeResult);
     }
 }
