@@ -25,15 +25,20 @@ public class CloudExportConfiguration {
             throw new IllegalStateException("Cloud export is enabled but no bucket is set: "
                     + "set visiontrack.cloud.export.bucket (or VISIONTRACK_CLOUD_BUCKET with the aws profile)");
         }
+        DefaultCredentialsProvider.Builder credentials = DefaultCredentialsProvider.builder();
+        if (StringUtils.hasText(cloud.profile())) {
+            credentials.profileName(cloud.profile().strip());
+        }
         return S3Client.builder()
                 .region(Region.of(cloud.region()))
-                .credentialsProvider(DefaultCredentialsProvider.builder().build())
+                .credentialsProvider(credentials.build())
                 .build();
     }
 
     @Bean
     OutboxUploader outboxUploader(S3Client s3, CloudExportProperties cloud, VisionTrackProperties properties) {
-        log.info("Cloud export on: outbox uploads to s3://{}/{}", cloud.bucket(), cloud.rawPrefix());
+        log.info("Cloud export on: outbox uploads to s3://{}/{} (AWS profile: {})", cloud.bucket(), cloud.rawPrefix(),
+                StringUtils.hasText(cloud.profile()) ? cloud.profile().strip() : "default chain");
         return new OutboxUploader(properties.export().directory(), new S3RunUploader(s3, cloud.bucket()),
                 cloud.rawPrefix());
     }

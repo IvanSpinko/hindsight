@@ -1,6 +1,6 @@
 # Cloud data pipeline: upload exported detections to the data lake bucket (see README, "Cloud data pipeline").
 # Activate with --spring.profiles.active=aws (or add it next to desktop). Credentials come from the AWS
-# default chain, normally AWS_PROFILE=visiontrack-uploader (a role that may only write under raw/).
+# default chain, normally the visiontrack-uploader profile (a role that may only write under raw/).
 visiontrack:
   cloud:
     export:
@@ -8,3 +8,4 @@ visiontrack:
       bucket: ${VISIONTRACK_CLOUD_BUCKET:}
       prefix: ${VISIONTRACK_CLOUD_PREFIX:}
       region: ${VISIONTRACK_CLOUD_REGION:eu-west-1}
+      profile: ${VISIONTRACK_AWS_PROFILE:}
