@@ -25,7 +25,7 @@ so the user can rewatch visual details; it is not analysed.
 - **GPU (NVIDIA CUDA) is required** for all heavy processing. Without CUDA the app shows a clear error
   that an NVIDIA graphics card is required; there is no CPU fallback (decision of 2026-10-14). On the GPU:
   YOLO, Whisper, the notes model and screen encoding (NVENC). Still on the CPU: Silero VAD (whisper.cpp b5454
-  aborts with `-ug`), AAC audio and video decoding (see the handoff note);
+  aborts with `-ug`), AAC audio and video decoding (see the project report);
 - the app can be given to a friend as an archive: their data is separate, mine is never shared.
 
 **Out of scope:** analysing the screen (slides, shared documents), paid LLM APIs, server, accounts, AWS,

@@ -3,7 +3,7 @@
 State as of 2026-10-14, branch `meeting-notes`, commit `e188937`. This document describes everything the project
 does today, how it does it, what it depends on, what is known to be missing or broken, and what comes next.
 Companion documents: `README.md` (short overview), `docs/meeting-notes-spec.md` (requirements of the meetings
-module, version 2.0), `docs/meeting-notes-handoff.md` (working notes for continuing development).
+module, version 2.0).
 
 ---
 
@@ -295,7 +295,7 @@ logs\               screen.log, mic.log, system.log, whisper.log, llama.log (no 
 `MeetingStore` finds meetings by scanning these folders, so the user may move or delete them freely; fields of
 older versions (e.g. the removed slide count) are ignored when reading.
 
-### 7.7 Meetings REST API (requests from this computer only; others get 403)
+### 7.7 Meetings REST API (like every API: requests from this computer only; others get 403)
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/meetings/devices` (`?refresh=true`) | monitors, microphones, output device ("Other participants") |
@@ -371,7 +371,7 @@ src/main/resources/                      application.yml, application-desktop.ym
 src/test/java/                           84 tests
 native/audio-loopback/                   system sound helper source (C#)
 packaging/                               build-desktop.ps1, get-models.ps1, build-loopback.ps1, README.txt (for users), icon
-docs/                                    spec, handoff, this report
+docs/                                    spec and this report
 export_yoloworld.py, export_model.py     model export (Python, Ultralytics)
 Dockerfile                               container image (server use, CPU; outdated, see section 13)
 models/classes.txt                       the 99 detection classes
@@ -435,9 +435,8 @@ with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call 
    container runtime, or drop the AWS/Docker path.
 3. **The desktop build does not include the meetings module's programs and models** (`tools\`, `models\whisper`,
    `models\llm`, the helper) and their paths; planned for stage 9.
-4. The default profile listens on all network interfaces: video analysis and the live camera endpoint are reachable
-   from the local network during development (meetings are restricted to this computer; the desktop app binds to
-   127.0.0.1).
+4. Remote use is not supported: the server binds to 127.0.0.1 and every API answers requests from this computer
+   only (403 otherwise), so the app cannot be shared on a local network.
 5. Video analysis jobs are kept in memory only: they disappear when the app restarts (meetings do not).
 6. Rebuilding `target\*.jar` while the app runs from it breaks the running app.
 7. Silero VAD runs on the CPU (whisper.cpp bug with `-ug`); seconds per hour of audio.
@@ -504,7 +503,6 @@ running app → commit → push.
 ### Fixes worth doing before or alongside
 - Stop the ONNX Runtime shutdown crash (known issue 1) and delete the old `hs_err_pid*.log` files.
 - Decide on Docker/AWS: update to a CUDA image or remove it from the README.
-- Bind the default profile to 127.0.0.1 unless explicitly configured.
 - Test with real calls (Zoom/Teams/Telegram, Russian and English, with and without headphones) and tune
   `EchoFilter` and the notes prompt on them.
 - A small evaluation set for the notes (a few transcripts with expected decisions/tasks/dates) so prompt or model
