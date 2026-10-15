@@ -71,6 +71,8 @@ visiontrack:
       bucket: ""
       prefix: ""
       region: eu-west-1
+      # Named profile from ~/.aws/config (e.g. visiontrack-uploader); empty = AWS_PROFILE or the default profile
+      profile: ""
       scan-interval-ms: 15000
   meetings:
     # One folder per meeting: <date>_<time>_<title> with video/, audio/ and meeting.json

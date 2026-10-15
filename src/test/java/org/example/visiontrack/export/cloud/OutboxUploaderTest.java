@@ -150,10 +150,10 @@ class OutboxUploaderTest {
 
     @Test
     void rawPrefixIsNormalised() {
-        assertThat(new CloudExportProperties(true, "b", "", "eu-west-1", 1).rawPrefix()).isEqualTo("raw/");
-        assertThat(new CloudExportProperties(true, "b", null, "eu-west-1", 1).rawPrefix()).isEqualTo("raw/");
-        assertThat(new CloudExportProperties(true, "b", "/team-a", "eu-west-1", 1).rawPrefix()).isEqualTo("team-a/raw/");
-        assertThat(new CloudExportProperties(true, "b", "team-a/", "eu-west-1", 1).rawPrefix()).isEqualTo("team-a/raw/");
+        assertThat(new CloudExportProperties(true, "b", "", "eu-west-1", "", 1).rawPrefix()).isEqualTo("raw/");
+        assertThat(new CloudExportProperties(true, "b", null, "eu-west-1", "", 1).rawPrefix()).isEqualTo("raw/");
+        assertThat(new CloudExportProperties(true, "b", "/team-a", "eu-west-1", "", 1).rawPrefix()).isEqualTo("team-a/raw/");
+        assertThat(new CloudExportProperties(true, "b", "team-a/", "eu-west-1", "", 1).rawPrefix()).isEqualTo("team-a/raw/");
     }
 
     private Path outboxFile(String relative) throws Exception {

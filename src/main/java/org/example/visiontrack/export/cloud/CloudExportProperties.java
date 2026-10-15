@@ -3,8 +3,9 @@ package org.example.visiontrack.export.cloud;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Upload of the export outbox to S3. Credentials are never configured here: the AWS default chain is used
- * (for example {@code AWS_PROFILE=visiontrack-uploader}).
+ * Upload of the export outbox to S3. Credentials are never configured here: the AWS default chain is used,
+ * reading the named profile from {@code ~/.aws/config} when {@code profile} is set (for example
+ * {@code visiontrack-uploader}), otherwise {@code AWS_PROFILE} or the default profile.
  */
 @ConfigurationProperties(prefix = "visiontrack.cloud.export")
 public record CloudExportProperties(
@@ -12,6 +13,7 @@ public record CloudExportProperties(
         String bucket,
         String prefix,
         String region,
+        String profile,
         long scanIntervalMs
 ) {
 

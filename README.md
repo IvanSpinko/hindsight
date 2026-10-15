@@ -184,10 +184,30 @@ The export is **off by default**. Turn it on with the `aws` Spring profile; cred
 default chain, never from the project:
 
 ```powershell
-$env:AWS_PROFILE = "visiontrack-uploader"
+$env:VISIONTRACK_AWS_PROFILE = "visiontrack-uploader"
 $env:VISIONTRACK_CLOUD_BUCKET = "visiontrack-datalake-<account>-eu-west-1"
 java -jar target/visiontrack-object-detection-aws-1.0-SNAPSHOT.jar --spring.profiles.active=aws
 ```
+
+`VISIONTRACK_AWS_PROFILE` names a profile in `~/.aws/config`; without it the default chain is used
+(`AWS_PROFILE`, then the `default` profile, which may be a different account).
+
+**Desktop app (`VisionTrack.exe`).** The exe reads an optional per-user file
+`%LOCALAPPDATA%\VisionTrack\application.yml` on start. Create it with:
+
+```yaml
+visiontrack:
+  cloud:
+    export:
+      enabled: true
+      bucket: visiontrack-datalake-<account>-eu-west-1
+      profile: visiontrack-uploader
+```
+
+Then quit the app from the tray icon and start it again. The log
+(`%LOCALAPPDATA%\VisionTrack\visiontrack.log`) shows `Cloud export on: outbox uploads to s3://...`, and
+finished runs get the cloud badge in the UI. Delete the file (or set `enabled: false`) to turn the export off.
+The `~/.aws` profiles must exist on that PC, so this is for the developer's machine, not for a shared build.
 
 Files already in the outbox (exported while the cloud export was off) are uploaded too.
 
