@@ -16,6 +16,8 @@ spring:
 
 server:
   port: 8080
+  # This computer only; the APIs refuse other addresses too (web/LocalRequestsOnly)
+  address: 127.0.0.1
   tomcat:
     max-swallow-size: -1
 

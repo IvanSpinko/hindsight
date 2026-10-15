@@ -5,10 +5,7 @@ target/
 .kotlin
 
 ### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
+.idea/
 *.iws
 *.iml
 *.ipr
@@ -71,3 +68,6 @@ infra/tfplan*
 tools/
 models/whisper/
 models/llm/
+
+### Local working notes (not published) ###
+docs/internal/

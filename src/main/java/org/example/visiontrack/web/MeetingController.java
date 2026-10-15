@@ -1,6 +1,5 @@
 package org.example.visiontrack.web;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.example.visiontrack.meeting.CaptureDevices;
 import org.example.visiontrack.meeting.Meeting;
 import org.example.visiontrack.meeting.MeetingImporter;
@@ -15,7 +14,6 @@ import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,8 +25,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -51,18 +47,6 @@ public class MeetingController {
         this.store = store;
         this.jobs = jobs;
         this.importer = importer;
-    }
-
-    /** Screen and microphone recording is only ever controlled from this computer. */
-    @ModelAttribute
-    void requireLocalRequest(HttpServletRequest request) {
-        try {
-            if (!InetAddress.getByName(request.getRemoteAddr()).isLoopbackAddress()) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Meetings can only be controlled from this computer");
-            }
-        } catch (UnknownHostException e) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-        }
     }
 
     @GetMapping("/devices")
