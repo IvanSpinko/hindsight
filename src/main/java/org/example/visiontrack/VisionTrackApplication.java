@@ -1,13 +1,12 @@
 package org.example.visiontrack;
 
-import ai.onnxruntime.OrtException;
 import org.example.visiontrack.config.VisionTrackProperties;
-import org.example.visiontrack.detection.OnnxYoloDetector;
 import org.example.visiontrack.web.BrowserLauncher;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.io.IOException;
@@ -17,6 +16,7 @@ import java.net.Socket;
 
 @SpringBootApplication
 @ConfigurationPropertiesScan
+@EnableScheduling
 public class VisionTrackApplication {
 
     public static void main(String[] args) {
@@ -36,11 +36,6 @@ public class VisionTrackApplication {
         } catch (IOException | NumberFormatException e) {
             return false;
         }
-    }
-
-    @Bean(destroyMethod = "close")
-    public OnnxYoloDetector objectDetector(VisionTrackProperties properties) throws OrtException {
-        return OnnxYoloDetector.load(properties.model());
     }
 
     @Bean

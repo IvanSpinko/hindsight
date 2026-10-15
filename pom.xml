@@ -22,7 +22,20 @@
         <onnxruntime.version>1.22.0</onnxruntime.version>
         <javacv.version>1.5.11</javacv.version>
         <ffmpeg.version>7.1-${javacv.version}</ffmpeg.version>
+        <aws.sdk.version>2.55.0</aws.sdk.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- Web API + upload page -->
@@ -83,6 +96,29 @@
             <classifier>linux-x86_64</classifier>
         </dependency>
 
+        <!-- Cloud export of detection data to S3 (off by default). Sync client only: no Netty.
+             sts lets a named profile assume the upload-only role. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -98,6 +134,14 @@
                 <configuration>
                     <mainClass>org.example.visiontrack.VisionTrackApplication</mainClass>
                 </configuration>
+                <executions>
+                    <!-- META-INF/build-info.properties: the app version written into exported run summaries -->
+                    <execution>
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

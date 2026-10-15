@@ -11,3 +11,5 @@ visiontrack:
   tray-icon: true
   storage:
     directory: ${LOCALAPPDATA:${user.home}}/VisionTrack/uploads
+  export:
+    directory: ${LOCALAPPDATA:${user.home}}/VisionTrack/exports

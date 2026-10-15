@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "run_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+  "video_id": "596b9116-8b61-46ab-aae3-890d9bdd09cc",
+  "source": "upload",
+  "duration_ms": 5000,
+  "fps": 30.0,
+  "total_frames": 150,
+  "total_detections": 67,
+  "requested_classes": [
+    "person",
+    "cup",
+    "laptop"
+  ],
+  "processing_time_ms": 2876,
+  "started_at": "2026-10-15T13:20:58.404Z",
+  "finished_at": "2026-10-15T13:21:01.498Z",
+  "app_version": "1.0-SNAPSHOT",
+  "status": "completed"
+}

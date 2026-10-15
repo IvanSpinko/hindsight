@@ -26,10 +26,12 @@ public final class VideoWriter implements AutoCloseable {
         }
         FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(file.toFile(), width, height, 0);
         recorder.setFormat("mp4");
-        recorder.setVideoCodecName("libopenh264");
+        // Encoded by NVENC on the NVIDIA GPU; no B-frames, NVENC refuses them with the short GOP of low frame rates
+        recorder.setVideoCodecName("h264_nvenc");
         recorder.setPixelFormat(avutil.AV_PIX_FMT_YUV420P);
         recorder.setFrameRate(frameRate);
         recorder.setGopSize((int) Math.max(1, Math.round(frameRate * 2)));
+        recorder.setMaxBFrames(0);
         recorder.setVideoBitrate((int) (width * height * frameRate * BITS_PER_PIXEL));
         recorder.setOption("movflags", "+faststart");
         try {

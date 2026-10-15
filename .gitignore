@@ -54,3 +54,19 @@ settings.json
 .env
 *.env
 *.key
+
+# Lambda tests and Terraform state/variables (secrets, account data)
+infra/lambda/.venv/
+__pycache__/
+.pytest_cache/
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform.tfvars
+infra/build/
+infra/tfplan
+
+# Whisper and the notes model (llama.cpp, whisper.cpp binaries and models, fetched by packaging/get-models.ps1)
+tools/
+models/whisper/
+models/llm/

@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+budget_email = "you@example.com"
+
+# Optional overrides
+# aws_profile          = "MyAWS"
+# region               = "eu-west-1"
+# budget_limit_usd     = 10
+# budget_alerts_usd    = [5, 10]
+# force_destroy_bucket = false

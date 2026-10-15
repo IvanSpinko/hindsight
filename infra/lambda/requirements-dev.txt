@@ -1,0 +1,2 @@
+pyarrow>=20
+pytest>=8

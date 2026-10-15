@@ -13,10 +13,10 @@ GETTING STARTED
 REQUIREMENTS
   Windows 10/11 (64-bit) and Microsoft Edge (included with Windows).
   No need to install Java - it is bundled.
-  An NVIDIA graphics card (GTX 900 / RTX or newer) with an up-to-date driver - analysis runs on the GPU,
-  no need to install CUDA, everything required is bundled. Without NVIDIA it runs on the CPU, but much slower.
-  Which one is used is shown in "Technical details" after a video is processed: "on CUDA" or "on CPU".
-  If it says "on CPU" although you have an NVIDIA card, update the driver from nvidia.com.
+  An NVIDIA graphics card (GTX 900 / RTX or newer) with driver 528 or newer - it is required: video analysis,
+  the live camera, screen recording and speech recognition all run on the GPU. No need to install CUDA,
+  everything required is bundled. Without a compatible card the app still opens, but these features show
+  "... needs an NVIDIA graphics card with CUDA". If you have an NVIDIA card, update the driver from nvidia.com.
 
 CLOSING AND BACKGROUND
   Closing the window does not quit the app - it stays in the tray (the icon next to the clock).
