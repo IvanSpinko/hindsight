@@ -168,6 +168,14 @@ public final class OnnxYoloDetector implements AutoCloseable {
         }
     }
 
+    public String modelName() {
+        return modelName;
+    }
+
+    public List<String> labels() {
+        return labels;
+    }
+
     public String description() {
         return "%s (%dx%d, %d classes) on %s".formatted(modelName, inputWidth, inputHeight, labels.size(), backend);
     }

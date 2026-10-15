@@ -98,6 +98,14 @@
                 <configuration>
                     <mainClass>org.example.visiontrack.VisionTrackApplication</mainClass>
                 </configuration>
+                <executions>
+                    <!-- META-INF/build-info.properties: the app version written into exported run summaries -->
+                    <execution>
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

@@ -4,6 +4,9 @@ import org.example.visiontrack.analysis.AnalysisResult;
 import org.example.visiontrack.analysis.ProgressListener;
 import org.example.visiontrack.analysis.VideoAnalyzer;
 import org.example.visiontrack.config.VisionTrackProperties;
+import org.example.visiontrack.export.ExportService;
+import org.example.visiontrack.export.ExportedRun;
+import org.example.visiontrack.export.VideoRunSummary;
 import org.example.visiontrack.render.AnnotatedVideoRenderer;
 import org.example.visiontrack.storage.VideoStorage;
 import org.slf4j.Logger;
@@ -40,15 +43,17 @@ public class AnalysisJobService {
     private final TaskExecutor executor;
     private final VisionTrackProperties.Storage storageSettings;
     private final boolean renderAnnotatedVideo;
+    private final ExportService exports;
 
     public AnalysisJobService(JobRepository jobs, VideoStorage storage, VideoAnalyzer analyzer,
                               AnnotatedVideoRenderer renderer,
                               @Qualifier("analysisExecutor") TaskExecutor executor,
-                              VisionTrackProperties properties) {
+                              VisionTrackProperties properties, ExportService exports) {
         this.jobs = jobs;
         this.storage = storage;
         this.analyzer = analyzer;
         this.renderer = renderer;
+        this.exports = exports;
         this.executor = executor;
         this.storageSettings = properties.storage();
         this.renderAnnotatedVideo = properties.analysis().annotatedVideo();
@@ -105,18 +110,23 @@ public class AnalysisJobService {
         };
         double analysisShare = renderAnnotatedVideo ? 0.75 : 1.0;
 
+        ExportedRun export = exports.start(id, VideoRunSummary.Source.UPLOAD);
         try {
             Path video = storage.localPath(job.storageKey());
-            AnalysisResult result = analyzer.analyze(video, progress.range(0, analysisShare));
+            AnalysisResult result = analyzer.analyze(video, progress.range(0, analysisShare), export);
+            export.finish(VideoRunSummary.Status.COMPLETED);
             String annotatedKey = renderAnnotatedVideo
                     ? renderAnnotatedVideo(id, video, result, progress.range(analysisShare, 1.0))
                     : null;
             jobs.update(id, j -> j.completed(result, annotatedKey));
             log.info("Job {} completed: {} objects", id, result.totalObjects());
         } catch (Exception e) {
+            export.finish(e instanceof CancellationException
+                    ? VideoRunSummary.Status.CANCELLED : VideoRunSummary.Status.FAILED);
             log.error("Job {} failed", id, e);
             jobs.update(id, j -> j.failed(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
         } finally {
+            export.finish(VideoRunSummary.Status.FAILED); // no-op when the run was already finished above
             if (storageSettings.deleteAfterProcessing()) {
                 storage.delete(job.storageKey());
             }

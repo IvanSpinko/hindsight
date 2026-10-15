@@ -37,6 +37,10 @@ public class VideoAnalyzer {
     }
 
     public AnalysisResult analyze(Path video, ProgressListener progress) {
+        return analyze(video, progress, FrameObserver.NONE);
+    }
+
+    public AnalysisResult analyze(Path video, ProgressListener progress, FrameObserver observer) {
         long started = System.nanoTime();
         long sampleIntervalMicros = settings.sampleFps() > 0 ? Math.round(1_000_000 / settings.sampleFps()) : 0;
         ObjectTracker tracker = new ObjectTracker(settings.trackIouThreshold(),
@@ -45,20 +49,24 @@ public class VideoAnalyzer {
         VideoReader.Metadata metadata;
         int framesAnalyzed = 0;
         long lastTimestamp = 0;
+        long frameIndex = -1;
         try (VideoReader reader = VideoReader.open(video, settings.maxFrameDimension())) {
             metadata = reader.metadata();
+            observer.onStart(metadata.width(), metadata.height(), metadata.frameRate(), metadata.durationMicros());
             long nextSample = 0;
             VideoReader.Frame frame;
             while ((frame = reader.nextFrame()) != null) {
                 if (Thread.currentThread().isInterrupted()) {
                     throw new CancellationException("Analysis interrupted");
                 }
+                frameIndex++;
                 long timestamp = frame.timestampMicros();
                 lastTimestamp = Math.max(lastTimestamp, timestamp);
                 if (timestamp < nextSample) continue;
                 nextSample = timestamp + sampleIntervalMicros;
 
                 List<Detection> detections = detector.detect(frame.image());
+                observer.onFrame(frameIndex, timestamp, detections);
                 tracker.update(detections, timestamp);
                 framesAnalyzed++;
 
@@ -67,6 +75,7 @@ public class VideoAnalyzer {
                 }
             }
         }
+        observer.onEnd(frameIndex + 1);
         progress.onProgress(1.0);
 
         List<TrackedObject> tracked = tracker.finish();
