@@ -4,34 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VisionTrack</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='2' y='2' width='60' height='60' rx='16' fill='%235b6cf0'/%3E%3Cpath d='M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39' fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='2' y='2' width='60' height='60' rx='16' fill='%23b65a37'/%3E%3Cpath d='M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39' fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23fff'/%3E%3C/svg%3E">
 <script>
   // Apply the saved theme before the page is drawn, so it does not flash in the other one
   try { const t = localStorage.getItem('visiontrack.theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
 </script>
 <style>
-  /* Soft palette: warm neutrals, a muted indigo accent and pastel status colours */
+  /* Sand and terracotta: warm sandy neutrals, a terracotta accent and earthy status colours */
   :root {
-    --bg: #f5f5f2; --surface: #ffffff; --raised: #fafaf8; --border: #e7e6e1; --border-strong: #d6d4cd;
-    --text: #1f2024; --muted: #6d6d76; --accent: #5b6cf0; --accent-strong: #4a5ae0; --accent-soft: #eef0fe; --on-accent: #ffffff;
-    --error: #c2554d; --error-soft: #fbeeec; --warn: #8a6116; --warn-soft: #fbf4e4; --ok: #3d7a57; --ok-soft: #e6f2ea;
-    --rec: #e0524a; --shadow: 0 1px 2px rgba(30, 30, 40, .04), 0 2px 12px rgba(30, 30, 40, .04);
-    --menu-shadow: 0 8px 28px rgba(30, 30, 40, .14); color-scheme: light;
+    --bg: #f6f1ea; --surface: #fffdf9; --raised: #faf5ee; --border: #e8dfd3; --border-strong: #d6c8b7;
+    --text: #2b2420; --muted: #7a6c60; --accent: #b65a37; --accent-strong: #9f4c2c; --accent-soft: #f6e6dc; --on-accent: #ffffff;
+    --error: #a83a35; --error-soft: #f6e1de; --warn: #85601d; --warn-soft: #f6ecd6; --ok: #5b7646; --ok-soft: #e8eedc;
+    --rec: #cf4636; --shadow: 0 1px 2px rgba(70, 45, 20, .05), 0 2px 12px rgba(70, 45, 20, .05);
+    --menu-shadow: 0 8px 28px rgba(70, 45, 20, .16); color-scheme: light;
   }
   /* Dark theme: follows the system unless the header button picked one (data-theme on <html>, kept in localStorage) */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #17181c; --surface: #1f2026; --raised: #25262d; --border: #2e2f37; --border-strong: #3d3e48;
-      --text: #e8e8ec; --muted: #9b9ba7; --accent: #8b97f5; --accent-strong: #a0aaf7; --accent-soft: #262a45; --on-accent: #15161b;
-      --error: #f0a39b; --error-soft: #3a2427; --warn: #e3c27a; --warn-soft: #302818; --ok: #8fcca5; --ok-soft: #1f3328;
-      --rec: #f07a72; --shadow: none; --menu-shadow: 0 10px 32px rgba(0, 0, 0, .45); color-scheme: dark;
+      --bg: #1c1814; --surface: #242019; --raised: #2b261f; --border: #3a322a; --border-strong: #4b4136;
+      --text: #efe7dd; --muted: #a8998a; --accent: #e08a64; --accent-strong: #eb9d7a; --accent-soft: #3b281e; --on-accent: #1c1814;
+      --error: #f0a093; --error-soft: #3d2420; --warn: #e2c27c; --warn-soft: #352a17; --ok: #a9c48f; --ok-soft: #26301d;
+      --rec: #f07a66; --shadow: none; --menu-shadow: 0 10px 32px rgba(0, 0, 0, .5); color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #17181c; --surface: #1f2026; --raised: #25262d; --border: #2e2f37; --border-strong: #3d3e48;
-    --text: #e8e8ec; --muted: #9b9ba7; --accent: #8b97f5; --accent-strong: #a0aaf7; --accent-soft: #262a45; --on-accent: #15161b;
-    --error: #f0a39b; --error-soft: #3a2427; --warn: #e3c27a; --warn-soft: #302818; --ok: #8fcca5; --ok-soft: #1f3328;
-    --rec: #f07a72; --shadow: none; --menu-shadow: 0 10px 32px rgba(0, 0, 0, .45); color-scheme: dark;
+    --bg: #1c1814; --surface: #242019; --raised: #2b261f; --border: #3a322a; --border-strong: #4b4136;
+    --text: #efe7dd; --muted: #a8998a; --accent: #e08a64; --accent-strong: #eb9d7a; --accent-soft: #3b281e; --on-accent: #1c1814;
+    --error: #f0a093; --error-soft: #3d2420; --warn: #e2c27c; --warn-soft: #352a17; --ok: #a9c48f; --ok-soft: #26301d;
+    --rec: #f07a66; --shadow: none; --menu-shadow: 0 10px 32px rgba(0, 0, 0, .5); color-scheme: dark;
   }
   * { box-sizing: border-box; }
   body {
@@ -293,7 +293,7 @@
   <header>
     <div class="bar">
       <div class="brand">
-        <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" fill="#5b6cf0"/><path d="M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="32" r="6" fill="#fff"/></svg>
+        <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" fill="#b65a37"/><path d="M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="32" r="6" fill="#fff"/></svg>
         <h1>VisionTrack</h1>
       </div>
       <nav class="tabs">
