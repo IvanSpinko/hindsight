@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -72,7 +73,7 @@ public class ExportedRun implements FrameObserver {
         lastTimestampMs = Math.max(lastTimestampMs, timestampMs);
         if (recorder == null || found.isEmpty() || frameWidth <= 0 || frameHeight <= 0) return;
 
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         List<DetectionEvent> events = new ArrayList<>(found.size());
         for (Detection detection : found) {
             events.add(DetectionEvent.of(run, model, frameIndex, timestampMs, frameWidth, frameHeight, detection, now));
@@ -109,8 +110,8 @@ public class ExportedRun implements FrameObserver {
 
         VideoRunSummary summary = new VideoRunSummary(DetectionEvent.SCHEMA_VERSION, run.runId(),
                 run.videoId(), run.source(), durationMs, fps, frames, detections, model.classes(),
-                (System.nanoTime() - startedNanos) / 1_000_000, run.startedAt(), Instant.now(), model.appVersion(),
-                status);
+                (System.nanoTime() - startedNanos) / 1_000_000, run.startedAt(),
+                Instant.now().truncatedTo(ChronoUnit.MILLIS), model.appVersion(), status);
         try {
             recorder.finish(summary);
             log.info("Run {} exported: {} detections, status {}", run.runId(), detections, status.json());
