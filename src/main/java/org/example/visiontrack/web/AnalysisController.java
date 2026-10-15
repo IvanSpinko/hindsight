@@ -46,13 +46,24 @@ public class AnalysisController {
             Instant finishedAt,
             String error,
             String annotatedVideoUrl,
+            Summary summary,
             AnalysisResult result
     ) {
+
+        /** What the list of past analyses shows without loading every object track. */
+        public record Summary(int totalObjects, double durationSeconds, List<AnalysisResult.LabelCount> counts) {
+
+            static Summary of(AnalysisResult result) {
+                return result == null ? null
+                        : new Summary(result.totalObjects(), result.video().durationSeconds(), result.counts());
+            }
+        }
 
         static AnalysisJobResponse from(AnalysisJob job, boolean includeResult) {
             return new AnalysisJobResponse(job.id(), job.fileName(), job.status(), job.progressPercent(),
                     job.createdAt(), job.startedAt(), job.finishedAt(), job.error(),
                     job.annotatedVideoKey() == null ? null : "/api/analyses/" + job.id() + "/video",
+                    includeResult ? null : Summary.of(job.result()),
                     includeResult ? job.result() : null);
         }
     }

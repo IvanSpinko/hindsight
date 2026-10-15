@@ -7,13 +7,15 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='2' y='2' width='60' height='60' rx='14' fill='%232563eb'/%3E%3Cpath d='M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39' fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23fff'/%3E%3C/svg%3E">
 <style>
   :root {
-    --bg: #f7f7f8; --surface: #ffffff; --border: #e6e6e9; --text: #18181b; --muted: #71717a;
+    --bg: #f7f7f8; --surface: #ffffff; --border: #e6e6e9; --border-strong: #d4d4d8; --text: #18181b; --muted: #71717a;
     --accent: #2563eb; --accent-soft: #eff4ff; --error: #b91c1c; --error-soft: #fef2f2;
+    --warn: #92400e; --warn-soft: #fffbeb; --shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 1px 8px rgba(0, 0, 0, .03);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #111113; --surface: #1a1a1d; --border: #2e2e33; --text: #ececef; --muted: #a1a1aa;
+      --bg: #111113; --surface: #1a1a1d; --border: #2e2e33; --border-strong: #3f3f46; --text: #ececef; --muted: #a1a1aa;
       --accent: #6d9bff; --accent-soft: #1c2640; --error: #fca5a5; --error-soft: #3b1d1d;
+      --warn: #fcd34d; --warn-soft: #3a2a10; --shadow: none;
     }
   }
   * { box-sizing: border-box; }
@@ -23,9 +25,11 @@
   }
   main { max-width: 880px; margin: 0 auto; padding: 40px 16px 64px; }
   header { margin-bottom: 24px; }
-  header h1 { margin: 0; font-size: 24px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand svg { width: 32px; height: 32px; flex: none; }
+  header h1 { margin: 0; font-size: 24px; letter-spacing: -.01em; }
   header p { margin: 4px 0 0; color: var(--muted); }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow); }
   h2 { margin: 0 0 12px; font-size: 16px; }
   .muted { color: var(--muted); font-size: 14px; }
 
@@ -45,8 +49,14 @@
     padding: 8px 16px; cursor: pointer; background: var(--accent); color: #fff; text-decoration: none;
   }
   button.secondary, a.button.secondary { background: transparent; color: var(--text); border-color: var(--border); font-weight: 500; }
+  button, a.button { transition: filter .15s, background .15s, border-color .15s; }
+  button:not(:disabled):hover, a.button:hover { filter: brightness(1.08); }
+  button.secondary:not(:disabled):hover, a.button.secondary:hover { filter: none; background: var(--bg); border-color: var(--border-strong); }
+  button.small, a.button.small { font-size: 13px; padding: 4px 12px; border-radius: 7px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   #drop[hidden] + .row { margin-top: 0; }
   .link { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); font-weight: 500; cursor: pointer; text-decoration: none; }
+  .link:hover { text-decoration: underline; filter: none !important; }
   button:disabled { opacity: .5; cursor: not-allowed; }
 
   .progress { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; margin: 16px 0 6px; }
@@ -81,6 +91,7 @@
   th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   th { color: var(--muted); font-weight: 500; font-size: 13px; }
   tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: var(--bg); }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   td .obj { display: inline-flex; align-items: center; gap: 8px; }
   td .id { color: var(--muted); font-size: 13px; }
@@ -91,7 +102,11 @@
   /* modes */
   .tabs { display: inline-flex; gap: 4px; margin-top: 16px; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
   .tab { background: transparent; color: var(--muted); font-weight: 500; padding: 6px 14px; }
+  .tab:not(.active):hover { filter: none; color: var(--text); background: var(--bg); }
   .tab.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .chip { cursor: pointer; }
+  span.chip { cursor: default; }
+  button.chip:not(.active):hover { filter: none; border-color: var(--border-strong); }
   select { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); max-width: 260px; }
   .stage.live { margin-top: 14px; }
   .stage.live video { transform: scaleX(-1); }
@@ -100,29 +115,58 @@
   .form { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 14px; align-items: center; }
   .form label { color: var(--muted); font-size: 14px; }
   .form select, .form input { max-width: 100%; width: 100%; }
-  input[type=text] { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+  input[type=text], input[type=search] { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
   #meeting-form + .row { margin-top: 16px; }
   .rec { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: #e51c23; font-variant-numeric: tabular-nums; font-size: 20px; }
   .rec::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: #e51c23; animation: blink 1.2s infinite; }
   @keyframes blink { 50% { opacity: .25; } }
-  .meeting { padding: 12px 0; border-bottom: 1px solid var(--border); }
-  .meeting:last-child { border-bottom: 0; padding-bottom: 0; }
-  .meeting .title { font-weight: 600; }
-  .meeting .path { font-size: 13px; color: var(--muted); word-break: break-all; }
-  .meeting .warn { font-size: 13px; color: var(--error); }
-  .badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
+  .path { font-size: 13px; color: var(--muted); word-break: break-all; }
+  .list-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .list-head h2 { margin: 0; }
+  .list-head .count { color: var(--muted); font-weight: 500; margin-left: 4px; }
+  .list-head input { width: 220px; max-width: 100%; }
+  .group-title { margin: 18px 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  .group-title:first-child { margin-top: 4px; }
+  .entry { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; transition: border-color .15s; }
+  .entry:hover { border-color: var(--border-strong); }
+  .entry.failed { border-left: 3px solid var(--error); }
+  .entry.recording { border-left: 3px solid #e51c23; }
+  .m-head { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; }
+  .m-head .title { font-weight: 600; font-size: 16px; display: inline-flex; align-items: center; gap: 8px; min-width: 0; word-break: break-word; }
+  .m-head .when { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .m-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tag { font-size: 12px; padding: 2px 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag b { color: var(--text); font-weight: 600; }
+  .m-msg { font-size: 13px; padding: 6px 10px; border-radius: 6px; margin-top: 8px; }
+  .m-msg.warn { background: var(--warn-soft); color: var(--warn); }
+  .m-msg.err { background: var(--error-soft); color: var(--error); }
+  .m-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .m-actions .spacer { flex: 1; }
+  .m-actions .link { font-size: 14px; }
+  .entry .progress { margin: 10px 0 4px; max-width: 360px; }
+  .entry.current { border-color: var(--accent); background: var(--accent-soft); }
+  .entry.clickable { cursor: pointer; }
+  .entry .chip { font-size: 13px; padding: 2px 10px; }
+  .badge.queued, .badge.processing { background: var(--accent-soft); color: var(--accent); }
+  .badge.completed { background: #dcfce7; color: #166534; }
+  @media (prefers-color-scheme: dark) { .badge.completed { background: #14321f; color: #86efac; } }
+  .entry details { margin-top: 10px; }
+  .entry details .path { margin-top: 4px; }
+  .badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
   .badge.failed { background: var(--error-soft); color: var(--error); }
   .badge.recording { background: #e51c23; color: #fff; }
   .badge.ready { background: #dcfce7; color: #166534; }
   @media (prefers-color-scheme: dark) { .badge.ready { background: #14321f; color: #86efac; } }
-  .meeting .progress { margin: 8px 0 2px; max-width: 360px; }
-  @media (max-width: 520px) { .form { grid-template-columns: 1fr; gap: 4px; } }
+  @media (max-width: 520px) { .form { grid-template-columns: 1fr; gap: 4px; } .list-head input { width: 100%; } }
 </style>
 </head>
 <body>
 <main>
   <header>
-    <h1>VisionTrack</h1>
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="14" fill="#2563eb"/><path d="M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="32" r="6" fill="#fff"/></svg>
+      <h1>VisionTrack</h1>
+    </div>
     <p id="subtitle">Find out which objects appear in a video and when.</p>
     <nav class="tabs">
       <button class="tab active" data-mode="file">Video file</button>
@@ -190,6 +234,14 @@
       </div>
     </div>
   </section>
+
+  <section class="card" id="history" hidden>
+    <div class="list-head">
+      <h2>Recent videos<span class="count" id="h-count"></span></h2>
+      <span class="muted">Kept until the app is closed</span>
+    </div>
+    <div id="h-list"></div>
+  </section>
   </div>
 
   <section id="live-mode" hidden>
@@ -251,9 +303,14 @@
       <div class="path" id="m-upload-status"></div>
     </div>
     <div class="card">
-      <h2>Meetings</h2>
+      <div class="list-head">
+        <h2>Meetings<span class="count" id="m-count"></span></h2>
+        <input type="search" id="m-search" placeholder="Search by title or file" hidden>
+      </div>
+      <div class="filters" id="m-filters" hidden></div>
       <div id="m-list"></div>
       <p class="muted" id="m-empty" hidden>No meetings yet: record one or upload a recording.</p>
+      <p class="muted" id="m-nomatch" hidden>No meetings match the search.</p>
     </div>
   </section>
 </main>
@@ -298,6 +355,7 @@
       if (xhr.status !== 202) return fail(body?.detail || `Upload failed (HTTP ${xhr.status})`);
       setPreview(selectedFile);
       track(body.id);
+      loadHistory();
     };
     xhr.onerror = () => fail('Upload failed – is the server running?');
     xhr.send(form);
@@ -316,6 +374,7 @@
     analyzeBtn.disabled = true;
     hideError();
     history.replaceState(null, '', location.pathname);
+    renderHistory();
   });
 
   // ---------- polling ----------
@@ -333,8 +392,12 @@
       }
       if (job.status === 'QUEUED') showProgress(0, 'Waiting in queue…');
       else if (job.status === 'PROCESSING') showProgress(job.progressPercent, `Analysing… ${job.progressPercent}%`);
-      else if (job.status === 'FAILED') return fail(`Analysis failed: ${job.error || 'unknown error'}`);
+      else if (job.status === 'FAILED') {
+        loadHistory();
+        return fail(`Analysis failed: ${job.error || 'unknown error'}`);
+      }
       else if (job.status === 'COMPLETED') {
+        loadHistory();
         // The upload form is no longer needed: show just the file name and a "New video" button
         $('progress-box').hidden = true;
         $('drop').hidden = true;
@@ -596,9 +659,112 @@
   function hideError() { $('error').hidden = true; }
   function parseJson(text) { try { return JSON.parse(text); } catch { return null; } }
 
+  // ---------- recent videos ----------
+  // The server keeps finished analyses in memory; the list shows them newest first, grouped by day.
+  const JOB_STATUS = { QUEUED: 'Queued', PROCESSING: 'Analysing', COMPLETED: 'Done', FAILED: 'Failed' };
+  let pastJobs = [], historyTimer = null;
+
+  async function loadHistory() {
+    clearTimeout(historyTimer);
+    try {
+      const res = await fetch('/api/analyses');
+      if (!res.ok) return;
+      pastJobs = await res.json();
+    } catch {
+      return;
+    }
+    renderHistory();
+    if (pastJobs.some(j => j.status === 'QUEUED' || j.status === 'PROCESSING')) historyTimer = setTimeout(loadHistory, 3000);
+  }
+
+  function renderHistory() {
+    const current = new URLSearchParams(location.search).get('job');
+    $('history').hidden = pastJobs.length === 0;
+    $('h-count').textContent = pastJobs.length ? ` · ${pastJobs.length}` : '';
+    const nodes = [];
+    let lastDay = null;
+    for (const job of pastJobs) {
+      const day = dayLabel(new Date(job.createdAt));
+      if (day !== lastDay) nodes.push(el('div', 'group-title', day));
+      lastDay = day;
+      nodes.push(renderJob(job, job.id === current));
+    }
+    $('h-list').replaceChildren(...nodes);
+  }
+
+  function renderJob(job, isCurrent) {
+    const status = job.status.toLowerCase(), s = job.summary;
+    const item = el('article', `entry ${status}` + (isCurrent ? ' current' : ' clickable'));
+
+    const head = el('div', 'm-head');
+    const title = el('span', 'title', job.fileName);
+    title.append(el('span', `badge ${status}`,
+      job.status === 'PROCESSING' ? `Analysing ${job.progressPercent}%` : JOB_STATUS[job.status] || job.status));
+    const time = new Date(job.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    head.append(title, el('span', 'when', s ? `${time} · ${clock(s.durationSeconds)}` : time));
+    item.append(head);
+
+    // The most frequent objects, like the filter chips of an opened result
+    if (s) {
+      const tags = el('div', 'm-tags');
+      if (!s.totalObjects) tags.append(el('span', 'muted', 'No objects found'));
+      const top = [...s.counts].sort((a, b) => b.count - a.count);
+      for (const c of top.slice(0, 5)) {
+        const chip = el('span', 'chip');
+        chip.append(dot(colorFor(c.label)), c.label, el('span', 'n', String(c.count)));
+        tags.append(chip);
+      }
+      if (top.length > 5) tags.append(el('span', 'muted', `+${top.length - 5} more`));
+      item.append(tags);
+    }
+    if (job.error) item.append(el('div', 'm-msg err', job.error));
+
+    if (!isCurrent) {
+      item.tabIndex = 0;
+      item.title = 'Show the results';
+      item.addEventListener('click', () => openPast(job.id));
+      item.addEventListener('keydown', e => { if (e.key === 'Enter') openPast(job.id); });
+    }
+    return item;
+  }
+
+  function openPast(jobId) {
+    clearTimeout(pollTimer);
+    selectedFile = null;
+    fileInput.value = '';
+    $('file-name').textContent = '';
+    analyzeBtn.disabled = true;
+    revokeLocalVideo();
+    player.removeAttribute('src');
+    player.load();
+    $('video-card').hidden = true;
+    $('results').hidden = true;
+    hideError();
+    track(jobId);
+    renderHistory();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function dayLabel(date) {
+    const startOf = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const days = Math.round((startOf(new Date()) - startOf(date)) / 86400000);
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    const sameYear = date.getFullYear() === new Date().getFullYear();
+    return date.toLocaleDateString(undefined, { weekday: days < 7 ? 'long' : undefined, day: 'numeric', month: 'long', year: sameYear ? undefined : 'numeric' });
+  }
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
   // Resume an analysis after a page refresh
   const jobFromUrl = new URLSearchParams(location.search).get('job');
   if (jobFromUrl) track(jobFromUrl);
+  loadHistory();
 })();
 </script>
 
@@ -946,27 +1112,106 @@
     }
     const active = items.find(i => i.meeting.status === 'RECORDING');
     if (active && !recording) showRecording(active.meeting);
-    $('m-empty').hidden = items.length > 0;
-    $('m-list').replaceChildren(...items.map(renderMeeting));
+    allMeetings = items;
+    renderList();
     // Keep refreshing while something is being processed
     const busy = items.some(i => ['RECORDED', 'PROCESSING'].includes(i.meeting.status));
     clearTimeout(poll);
     if (busy) poll = setTimeout(loadMeetings, 2000);
   }
 
+  // ---------- meeting list: search, status filter, grouped by day ----------
+  const STATUS_TEXT = { RECORDING: 'Recording', RECORDED: 'Waiting', PROCESSING: 'Processing', READY: 'Ready', FAILED: 'Failed' };
+  const FILTERS = [
+    { key: 'all', label: 'All', test: () => true },
+    { key: 'ready', label: 'Ready', test: m => m.status === 'READY' },
+    { key: 'busy', label: 'In progress', test: m => ['RECORDING', 'RECORDED', 'PROCESSING'].includes(m.status) },
+    { key: 'failed', label: 'Failed', test: m => m.status === 'FAILED' }
+  ];
+  let allMeetings = [], statusFilter = 'all';
+  const openDetails = new Set();   // ids whose "Details" are expanded survive the 2 s refresh
+
+  $('m-search').addEventListener('input', renderList);
+
+  function renderList() {
+    const query = $('m-search').value.trim().toLowerCase();
+    $('m-count').textContent = allMeetings.length ? ` · ${allMeetings.length}` : '';
+    $('m-search').hidden = allMeetings.length < 4 && !query;
+    $('m-empty').hidden = allMeetings.length > 0;
+
+    const present = FILTERS.filter(f => f.key !== 'all' && allMeetings.some(i => f.test(i.meeting)));
+    if (!FILTERS.some(f => f.key === statusFilter && (f.key === 'all' || present.includes(f)))) statusFilter = 'all';
+    const filters = $('m-filters');
+    filters.hidden = present.length < 2;
+    filters.replaceChildren(...FILTERS.filter(f => f.key === 'all' || present.includes(f)).map(f => {
+      const chip = el('button', 'chip' + (f.key === statusFilter ? ' active' : ''), f.label);
+      chip.append(el('span', 'n', String(allMeetings.filter(i => f.test(i.meeting)).length)));
+      chip.addEventListener('click', () => { statusFilter = f.key; renderList(); });
+      return chip;
+    }));
+
+    const test = FILTERS.find(f => f.key === statusFilter).test;
+    const shown = allMeetings.filter(({ meeting }) => test(meeting) &&
+      (!query || `${meeting.title} ${meeting.screenCapture || ''}`.toLowerCase().includes(query)));
+    $('m-nomatch').hidden = !allMeetings.length || shown.length > 0;
+
+    // The server lists the newest first; a heading starts every new day
+    const nodes = [];
+    let lastDay = null;
+    for (const item of shown) {
+      const day = dayLabel(new Date(item.meeting.startedAt));
+      if (day !== lastDay) nodes.push(el('div', 'group-title', day));
+      lastDay = day;
+      nodes.push(renderMeeting(item));
+    }
+    $('m-list').replaceChildren(...nodes);
+  }
+
+  function dayLabel(date) {
+    const startOf = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const days = Math.round((startOf(new Date()) - startOf(date)) / 86400000);
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    const sameYear = date.getFullYear() === new Date().getFullYear();
+    return date.toLocaleDateString(undefined, { weekday: days < 7 ? 'long' : undefined, day: 'numeric', month: 'long', year: sameYear ? undefined : 'numeric' });
+  }
+
   function renderMeeting({ meeting, folder }) {
-    const div = el('div', 'meeting');
-    const head = el('div', 'row');
+    const status = meeting.status.toLowerCase();
+    const div = el('article', `entry ${status}`);
+
+    // Title + status on the left, start time and length on the right
+    const head = el('div', 'm-head');
+    const title = el('span', 'title', meeting.title);
+    title.append(el('span', `badge ${status}`, STATUS_TEXT[meeting.status] || meeting.status));
     const duration = Math.max(0, ...meeting.tracks.map(t => t.durationSeconds));
-    head.append(
-      el('span', 'title', meeting.title),
-      el('span', 'badge ' + meeting.status.toLowerCase(),
-        { RECORDING: 'REC', RECORDED: 'Recorded', PROCESSING: 'Processing', READY: 'Ready', FAILED: 'Failed' }[meeting.status] || meeting.status),
-      el('span', 'muted', new Date(meeting.startedAt).toLocaleString() + (duration ? ` · ${clock(duration)}` : '')));
-    const sources = [meeting.screenCapture, meeting.microphone];
-    if (meeting.tracks.some(track => track.kind === 'system')) sources.push('system sound');
-    div.append(head, el('div', 'path', sources.filter(Boolean).join(' · ')));
-    for (const text of [...meeting.warnings, meeting.error].filter(Boolean)) div.append(el('div', 'warn', text));
+    const time = new Date(meeting.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    head.append(title, el('span', 'when', duration ? `${time} · ${humanLength(duration)}` : time));
+    div.append(head);
+
+    // What was recorded and what came out of it
+    const tags = el('div', 'm-tags');
+    const tag = (name, value) => {
+      const t = el('span', 'tag');
+      if (value) { t.append(`${name} `); t.append(el('b', '', value)); t.title = `${name} ${value}`; }
+      else t.textContent = name;
+      return t;
+    };
+    const uploaded = meeting.screenCapture?.startsWith('Uploaded: ');
+    if (uploaded) tags.append(tag('File', meeting.screenCapture.slice('Uploaded: '.length)));
+    else {
+      if (meeting.screenCapture) tags.append(tag('Screen', meeting.screenCapture));
+      if (meeting.microphone) tags.append(tag('Mic', meeting.microphone));
+      if (meeting.tracks.some(t => t.kind === 'system')) tags.append(tag('System sound'));
+    }
+    const t = meeting.transcription, n = meeting.notes;
+    if (meeting.status === 'READY' && t) tags.append(tag('Language', t.languages.length ? t.languages.join(', ').toUpperCase() : 'no speech'));
+    if (meeting.status === 'READY' && n) {
+      tags.append(tag('Decisions', String(n.decisions)));
+      tags.append(tag('Action items', String(n.actionItems)));
+    }
+    if (tags.childElementCount) div.append(tags);
+
     if (meeting.status === 'PROCESSING' && meeting.processing) {
       const bar = el('div', 'progress');
       const fill = document.createElement('div');
@@ -974,49 +1219,59 @@
       bar.append(fill);
       div.append(bar, el('div', 'path', `${meeting.processing.step}… ${meeting.processing.percent}%`));
     }
+    for (const text of meeting.warnings) div.append(el('div', 'm-msg warn', text));
+    if (meeting.error) div.append(el('div', 'm-msg err', meeting.error));
+
+    // Actions: open the results first, file management after the spacer
+    const actions = el('div', 'm-actions');
+    const open = (label, href, primary) => {
+      const a = el('a', `button small${primary ? '' : ' secondary'}`, label);
+      a.href = href;
+      a.target = '_blank';
+      return a;
+    };
     if (meeting.status === 'READY') {
-      const t = meeting.transcription;
-      const summary = [];
-      if (t) summary.push(`speech: ${t.languages.length ? t.languages.join(', ').toUpperCase() : 'none'} · ${t.model} on ${t.backend}`);
-      const n = meeting.notes;
-      if (n) summary.push(`notes: ${n.decisions} decisions, ${n.actionItems} action items · ${n.model}`);
-      const info = el('div', 'row');
-      info.append(el('span', 'path', summary.join(' · ')));
-      if (n) {
-        const link = el('a', 'link', 'Notes');
-        link.href = `/api/meetings/${meeting.id}/notes`;
-        link.target = '_blank';
-        info.append(link);
-      }
-      if (t && t.segments > 0) {
-        const link = el('a', 'link', 'Transcript');
-        link.href = `/api/meetings/${meeting.id}/transcript`;
-        link.target = '_blank';
-        info.append(link);
-      }
+      if (n) actions.append(open('Open notes', `/api/meetings/${meeting.id}/notes`, true));
+      if (t && t.segments > 0) actions.append(open('Transcript', `/api/meetings/${meeting.id}/transcript`, !n));
       if (meeting.tracks.some(track => track.kind === 'screen' || track.kind === 'audio')) {
-        const link = el('a', 'link', 'Recording');
-        link.href = `/api/meetings/${meeting.id}/recording`;
-        link.target = '_blank';
-        info.append(link);
+        actions.append(open('Recording', `/api/meetings/${meeting.id}/recording`));
       }
-      div.append(info);
     }
+    actions.append(el('span', 'spacer'));
     if (folder) {
-      const open = el('button', 'link', 'Open folder');
-      open.addEventListener('click', () =>
+      const openFolder = el('button', 'link', 'Open folder');
+      openFolder.addEventListener('click', () =>
         api(`/api/meetings/${meeting.id}/open-folder`, { method: 'POST' }).catch(e => showError(e.message)));
-      const row = el('div', 'row');
-      row.append(el('span', 'path', folder), open);
-      if (['READY', 'FAILED'].includes(meeting.status) && meeting.tracks.length) {
-        const again = el('button', 'link', 'Process again');
-        again.addEventListener('click', () =>
-          api(`/api/meetings/${meeting.id}/process`, { method: 'POST' }).then(loadMeetings).catch(e => showError(e.message)));
-        row.append(again);
-      }
-      div.append(row);
+      actions.append(openFolder);
+    }
+    if (['READY', 'FAILED'].includes(meeting.status) && meeting.tracks.length) {
+      const again = el('button', 'link', 'Process again');
+      again.addEventListener('click', () =>
+        api(`/api/meetings/${meeting.id}/process`, { method: 'POST' }).then(loadMeetings).catch(e => showError(e.message)));
+      actions.append(again);
+    }
+    if (actions.childElementCount > 1) div.append(actions);
+
+    // Technical details stay out of the way until asked for
+    const lines = [];
+    if (t) lines.push(`Speech: ${t.model} on ${t.backend}, ${t.segments} segments`);
+    if (n) lines.push(`Notes: ${n.model}`);
+    if (folder) lines.push(`Folder: ${folder}`);
+    if (lines.length) {
+      const details = document.createElement('details');
+      details.open = openDetails.has(meeting.id);
+      details.addEventListener('toggle', () => details.open ? openDetails.add(meeting.id) : openDetails.delete(meeting.id));
+      details.append(el('summary', '', 'Details'), ...lines.map(line => el('div', 'path', line)));
+      div.append(details);
     }
     return div;
+  }
+
+  // 3725 → "1 h 2 min", 95 → "2 min", 40 → "40 s"
+  function humanLength(seconds) {
+    const s = Math.round(seconds), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    if (h) return m ? `${h} h ${m} min` : `${h} h`;
+    return s >= 60 ? `${Math.round(s / 60)} min` : `${s} s`;
   }
 
   function el(tag, className, text) {
