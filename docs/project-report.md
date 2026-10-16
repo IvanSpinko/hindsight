@@ -53,7 +53,6 @@ Without a CUDA-capable NVIDIA GPU the app still starts, but the heavy features a
 | Run | `java -jar target\visiontrack-object-detection-aws-1.0-SNAPSHOT.jar`, open http://localhost:8080 |
 | Run on another port, no browser | add `--server.port=18080 --visiontrack.open-browser=false` |
 | Desktop app (exe + bundled Java) | `powershell -ExecutionPolicy Bypass -File packaging\build-desktop.ps1` → `dist\VisionTrack\` and `dist\VisionTrack.zip` |
-| Docker image (video analysis only) | `docker build --build-arg MODEL=yoloworldx-960.onnx -t visiontrack .` (see the known issues: it is CPU-based and no longer works since the app became GPU-only) |
 
 `get-models.ps1` downloads and installs:
 - whisper.cpp build `b5454` (CUDA 12.4) → `tools\whisper` (server, VAD tool, DLLs, ~1.1 GB);
@@ -373,7 +372,6 @@ native/audio-loopback/                   system sound helper source (C#)
 packaging/                               build-desktop.ps1, get-models.ps1, build-loopback.ps1, README.txt (for users), icon
 docs/                                    spec and this report
 export_yoloworld.py, export_model.py     model export (Python, Ultralytics)
-Dockerfile                               container image (server use, CPU; outdated, see section 13)
 models/classes.txt                       the 99 detection classes
 ```
 Ignored by git: `models/*.onnx`, `models/whisper`, `models/llm`, `tools/`, `weights/`, `data/`, `dist/`,
@@ -426,32 +424,25 @@ with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call 
 
 ## 13. Known issues and limitations
 
-1. **JVM crash on shutdown.** 14 `hs_err_pid*.log` files in the project root (13-14 October): every time the app
-   stops, `OrtSession.close()` crashes inside `onnxruntime.dll` (EXCEPTION_ACCESS_VIOLATION in the Spring shutdown
-   hook). It happens only at exit and does not affect results, but leaves crash logs. Likely fix: do not close the
-   CUDA session in the shutdown hook (let the process exit) or close it before the CUDA context is torn down.
-2. **Docker image and `-CpuOnly` desktop build are outdated.** Both assume CPU inference, which was removed; a
-   container would answer 503 for every analysis. Either base the image on a CUDA runtime image with the NVIDIA
-   container runtime, or drop the AWS/Docker path.
-3. **The desktop build does not include the meetings module's programs and models** (`tools\`, `models\whisper`,
+1. **The desktop build does not include the meetings module's programs and models** (`tools\`, `models\whisper`,
    `models\llm`, the helper) and their paths; planned for stage 9.
-4. Remote use is not supported: the server binds to 127.0.0.1 and every API answers requests from this computer
+2. Remote use is not supported: the server binds to 127.0.0.1 and every API answers requests from this computer
    only (403 otherwise), so the app cannot be shared on a local network.
-5. Video analysis jobs are kept in memory only: they disappear when the app restarts (meetings do not).
-6. Rebuilding `target\*.jar` while the app runs from it breaks the running app.
-7. Silero VAD runs on the CPU (whisper.cpp bug with `-ug`); seconds per hour of audio.
-8. System sound follows the default output device chosen at the start; switching speakers/headphones during a call
+3. Video analysis jobs are kept in memory only: they disappear when the app restarts (meetings do not).
+4. Rebuilding `target\*.jar` while the app runs from it breaks the running app.
+5. Silero VAD runs on the CPU (whisper.cpp bug with `-ug`); seconds per hour of audio.
+6. System sound follows the default output device chosen at the start; switching speakers/headphones during a call
    is not followed. Devices with formats other than 32-bit float or 16-bit PCM are not supported.
-9. No speaker separation inside a track: all other participants are "Other participants", everyone in an upload is
+7. No speaker separation inside a track: all other participants are "Other participants", everyone in an upload is
    "Participants". Names come only from what is said.
-10. Notes quality limits of a 12B local model: vague deadlines ("by the end of next week") may become a date, an
-    action item can be missed on one run and found on another; the notes footer asks to check names and dates.
-11. Uploaded recordings get the upload time as their date.
-12. Track offsets come from process start times; the screen starts ~1 s after the microphone (fine for watching).
-13. Disk use: screen up to ~3.6 GB per hour with constant motion; audio tracks are kept (no "delete audio after
+8. Notes quality limits of a 12B local model: vague deadlines ("by the end of next week") may become a date, an
+   action item can be missed on one run and found on another; the notes footer asks to check names and dates.
+9. Uploaded recordings get the upload time as their date.
+10. Track offsets come from process start times; the screen starts ~1 s after the microphone (fine for watching).
+11. Disk use: screen up to ~3.6 GB per hour with constant motion; audio tracks are kept (no "delete audio after
     processing" setting yet). CUDA DLLs are duplicated in `tools\whisper`, `tools\llama` and `app\cuda` (~2.5 GB).
-14. YOLO-World/YOLO11 weights are AGPL-3.0 (Ultralytics): matters if the app is published or shared beyond personal use.
-15. Real calls (Zoom, Teams, Telegram) in Russian and English have not been tested; only TTS voices, a speaker and
+12. YOLO-World/YOLO11 weights are AGPL-3.0 (Ultralytics): matters if the app is published or shared beyond personal use.
+13. Real calls (Zoom, Teams, Telegram) in Russian and English have not been tested; only TTS voices, a speaker and
     hand-written transcripts.
 
 ---
@@ -495,14 +486,12 @@ running app → commit → push.
 
 ### Stage 9: build for a friend
 - `build-desktop.ps1`: add `tools\` and `models\` (or download them on first start with progress), set the
-  meeting paths to `$APPDIR`, drop `-CpuOnly`, remove Linux natives from the jar, 7z archive.
+  meeting paths to `$APPDIR`, remove Linux natives from the jar, 7z archive.
 - Update `packaging\README.txt`: NVIDIA driver 528+, 12 GB VRAM recommended (8 GB: smaller notes model),
   recording consent, how to upload, where meetings are stored.
 - One shared copy of the CUDA DLLs to save ~1.5 GB.
 
 ### Fixes worth doing before or alongside
-- Stop the ONNX Runtime shutdown crash (known issue 1) and delete the old `hs_err_pid*.log` files.
-- Decide on Docker/AWS: update to a CUDA image or remove it from the README.
 - Test with real calls (Zoom/Teams/Telegram, Russian and English, with and without headphones) and tune
   `EchoFilter` and the notes prompt on them.
 - A small evaluation set for the notes (a few transcripts with expected decisions/tasks/dates) so prompt or model

@@ -7,7 +7,6 @@ param(
     [string]$CudaBin = "$env:CUDA_PATH\bin",
     [string]$CudnnBin = (Get-ChildItem "C:\Program Files\NVIDIA\CUDNN\v9*\bin\12*\x64" -Directory -ErrorAction SilentlyContinue |
         Sort-Object FullName | Select-Object -Last 1 -ExpandProperty FullName),
-    [switch]$CpuOnly,
     [switch]$NoZip
 )
 $ErrorActionPreference = "Stop"
@@ -63,19 +62,17 @@ foreach ($dll in "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll") {
 # onnxruntime_gpu needs the CUDA 12 runtime and cuDNN 9, which only come with the CUDA Toolkit, not
 # with the NVIDIA driver. Ship them in app\cuda; the app pre-loads them (visiontrack.model.native-dir)
 # so it runs on any NVIDIA GPU with a recent driver. cudnn_adv (RNNs) is not used by YOLO.
-if (-not $CpuOnly) {
-    $cuda = "cudart64_12.dll", "cublas64_12.dll", "cublasLt64_12.dll", "cufft64_11.dll" | ForEach-Object { Join-Path $CudaBin $_ }
-    $cudnn = Get-ChildItem "$CudnnBin\cudnn*64_9.dll" -ErrorAction SilentlyContinue | Where-Object Name -ne "cudnn_adv64_9.dll"
-    $missing = $cuda | Where-Object { -not (Test-Path $_) }
-    if ($missing -or -not $cudnn) {
-        throw "CUDA 12 / cuDNN 9 DLLs not found (missing: $missing; cuDNN: $CudnnBin). Pass -CudaBin/-CudnnBin or build with -CpuOnly"
-    }
-    Write-Host "     Adding CUDA $CudaBin and cuDNN $CudnnBin DLLs..."
-    $cudaDir = "dist\VisionTrack\app\cuda"
-    New-Item -ItemType Directory -Force $cudaDir | Out-Null
-    Copy-Item $cuda $cudaDir
-    $cudnn | Copy-Item -Destination $cudaDir
+$cuda = "cudart64_12.dll", "cublas64_12.dll", "cublasLt64_12.dll", "cufft64_11.dll" | ForEach-Object { Join-Path $CudaBin $_ }
+$cudnn = Get-ChildItem "$CudnnBin\cudnn*64_9.dll" -ErrorAction SilentlyContinue | Where-Object Name -ne "cudnn_adv64_9.dll"
+$missing = $cuda | Where-Object { -not (Test-Path $_) }
+if ($missing -or -not $cudnn) {
+    throw "CUDA 12 / cuDNN 9 DLLs not found (missing: $missing; cuDNN: $CudnnBin). Pass -CudaBin/-CudnnBin"
 }
+Write-Host "     Adding CUDA $CudaBin and cuDNN $CudnnBin DLLs..."
+$cudaDir = "dist\VisionTrack\app\cuda"
+New-Item -ItemType Directory -Force $cudaDir | Out-Null
+Copy-Item $cuda $cudaDir
+$cudnn | Copy-Item -Destination $cudaDir
 Copy-Item "packaging\README.txt" "dist\VisionTrack\README.txt"
 
 if (-not $NoZip) {
