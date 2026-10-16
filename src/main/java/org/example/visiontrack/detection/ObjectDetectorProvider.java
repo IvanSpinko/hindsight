@@ -12,9 +12,12 @@ import java.util.function.Function;
  * Loads the detector on first use and can unload it again, so its VRAM is free while a meeting is processed by
  * the speech and notes models. When it cannot be loaded (no NVIDIA GPU, missing model) the app still runs; video
  * analysis and the live camera report the reason instead.
+ * <p>
+ * Deliberately not closed on shutdown: closing a CUDA session while the JVM exits crashes inside onnxruntime.dll
+ * (EXCEPTION_ACCESS_VIOLATION), and the process ending frees the GPU memory anyway.
  */
 @Component
-public class ObjectDetectorProvider implements AutoCloseable {
+public class ObjectDetectorProvider {
 
     private static final Logger log = LoggerFactory.getLogger(ObjectDetectorProvider.class);
 
@@ -76,11 +79,5 @@ public class ObjectDetectorProvider implements AutoCloseable {
     private static RuntimeException logged(RuntimeException e) {
         log.error("Object detection is unavailable: {}", e.getMessage(), e.getCause());
         return e;
-    }
-
-    @Override
-    public synchronized void close() throws OrtException {
-        if (detector != null) detector.close();
-        detector = null;
     }
 }
