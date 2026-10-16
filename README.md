@@ -244,8 +244,3 @@ Then remove the `visiontrack-uploader` profile from `~/.aws/config`.
 Meeting-notes data in the lake, dbt models on top of `curated/`, a dashboard (QuickSight or Grafana),
 streaming with Kinesis Data Firehose instead of files, a remote Terraform state, and GPU deployment of the
 analysis itself.
-
-## Docker image (not maintained)
-
-The `Dockerfile` predates the GPU-only setup and builds a CPU image; it is kept for reference only and is
-not part of the cloud data pipeline above.
