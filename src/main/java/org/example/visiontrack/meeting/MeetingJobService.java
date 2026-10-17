@@ -226,7 +226,7 @@ public class MeetingJobService {
         Meeting.Track upload = meeting.track(RecordingImport.UPLOAD);
         if (upload == null) return meeting;
         store.save(meeting.processing(STEP_PREPARING, 0));
-        List<Meeting.Track> tracks = RecordingImport.prepare(ffmpeg(), folder, upload);
+        List<Meeting.Track> tracks = RecordingImport.prepare(ffmpeg(), folder, upload, progressSaver(meeting.id(), STEP_PREPARING));
         Meeting prepared = store.find(meeting.id()).orElse(meeting).withTracks(tracks);
         store.save(prepared);
         log.info("Meeting {}: uploaded recording prepared, {} s", meeting.id(),
