@@ -65,6 +65,19 @@ class RecordingImportTest {
     }
 
     @Test
+    void reencodedVideoIsCappedAt30FpsButSlowerVideoKeepsItsRate() throws IOException {
+        Meeting.Track fast = upload("webm", List.of("-f", "lavfi", "-i", "testsrc=size=320x240:rate=60:duration=2",
+                "-f", "lavfi", "-i", "sine=duration=2", "-c:v", "libvpx-vp9", "-deadline", "realtime", "-c:a", "libopus", "-shortest"));
+        RecordingImport.prepare(ffmpeg, folder, fast, fraction -> {});
+        assertThat(frameRate(folder.resolve("recording.mp4"))).isEqualTo("30/1");
+
+        Meeting.Track slow = upload("mkv", List.of("-f", "lavfi", "-i", "testsrc=size=320x240:rate=10:duration=2",
+                "-f", "lavfi", "-i", "sine=duration=2", "-c:v", "libvpx-vp9", "-c:a", "libopus", "-shortest"));
+        RecordingImport.prepare(ffmpeg, folder, slow, fraction -> {});
+        assertThat(frameRate(folder.resolve("recording.mp4"))).isEqualTo("10/1");
+    }
+
+    @Test
     void separateAudioTracksAreMixedIntoOne() throws IOException {
         Meeting.Track upload = upload("mkv", List.of("-f", "lavfi", "-i", "testsrc=size=320x240:rate=10:duration=3",
                 "-f", "lavfi", "-i", "sine=frequency=440:duration=3", "-f", "lavfi", "-i", "sine=frequency=880:duration=3",
@@ -100,7 +113,7 @@ class RecordingImportTest {
     void reencodingUsesTheFastestNvencPreset() {
         Path source = Path.of("source.mkv"), output = Path.of("recording.mp4");
         assertThat(RecordingImport.videoArgs(source, "hevc", 1, output)).containsSequence("-c:v", "h264_nvenc", "-preset", "p1");
-        assertThat(RecordingImport.videoArgs(source, "h264", 1, output)).doesNotContain("-preset").containsSequence("-c:v", "copy");
+        assertThat(RecordingImport.videoArgs(source, "h264", 1, output)).doesNotContain("-preset", "-fpsmax").containsSequence("-c:v", "copy");
     }
 
     @Test
@@ -141,6 +154,11 @@ class RecordingImportTest {
         Ffmpeg.Result result = ffmpeg.run(args, Duration.ofMinutes(1));
         assertThat(result.exitCode()).as(result.output()).isZero();
         return new Meeting.Track(RecordingImport.UPLOAD, "upload/source." + extension, 0, 0);
+    }
+
+    private static String frameRate(Path video) throws IOException {
+        return ffmpeg.probe(List.of("-v", "error", "-select_streams", "v:0", "-show_entries", "stream=avg_frame_rate",
+                "-of", "csv=p=0", video.toString()), Duration.ofSeconds(30)).output().strip();
     }
 
     private void assertWhisperReady(Meeting.Track speech, double seconds) throws IOException {

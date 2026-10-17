@@ -31,6 +31,8 @@ final class RecordingImport {
     static final Set<String> VIDEO_EXTENSIONS = Set.of("mp4", "mkv", "webm", "mov", "avi", "m4v", "wmv");
     /** Images some audio files carry as a "video" stream (album covers); they are not a video to keep. */
     private static final Set<String> COVER_CODECS = Set.of("mjpeg", "png", "bmp", "gif");
+    /** Frame rate limit of re-encoded video. */
+    static final int MAX_FPS = 30;
 
     private RecordingImport() {}
 
@@ -116,7 +118,9 @@ final class RecordingImport {
     /**
      * H.264 video is copied; other codecs (VP9, HEVC, MPEG-4...) are re-encoded on the GPU. NVENC is the slow part
      * (decoding on the GPU did not help: a 1080p60 HEVC screen recording decodes faster on the CPU), so it uses its
-     * fastest preset: twice as fast at the same size and quality level. The sound becomes one AAC track.
+     * fastest preset: twice as fast at the same size and quality level. Faster video is capped at 30 fps, which is
+     * enough to follow a meeting and halves the frames to encode; slower video keeps its own rate. The sound becomes
+     * one AAC track.
      */
     static List<String> videoArgs(Path source, String videoCodec, int audioTracks, Path output) {
         List<String> args = new ArrayList<>(List.of("-hide_banner", "-loglevel", "error", "-y", "-i", source.toString(), "-map", "0:v:0"));
@@ -124,8 +128,8 @@ final class RecordingImport {
         if (videoCodec.equals("h264")) {
             args.addAll(List.of("-c:v", "copy"));
         } else {
-            args.addAll(List.of("-c:v", "h264_nvenc", "-preset", "p1", "-pix_fmt", "yuv420p", "-rc", "vbr", "-cq", "26", "-b:v", "0",
-                    "-maxrate", "10M", "-bufsize", "20M"));
+            args.addAll(List.of("-fpsmax", String.valueOf(MAX_FPS), "-c:v", "h264_nvenc", "-preset", "p1", "-pix_fmt", "yuv420p",
+                    "-rc", "vbr", "-cq", "26", "-b:v", "0", "-maxrate", "10M", "-bufsize", "20M"));
         }
         args.addAll(List.of("-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", output.toString()));
         return args;
