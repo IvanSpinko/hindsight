@@ -32,7 +32,7 @@ class RecordingImportTest {
     void audioFileIsKeptAndItsSoundExtracted() throws IOException {
         Meeting.Track upload = upload("mp3", List.of("-f", "lavfi", "-i", "sine=frequency=440:duration=3", "-c:a", "libmp3lame"));
 
-        List<Meeting.Track> tracks = RecordingImport.prepare(ffmpeg, folder, upload);
+        List<Meeting.Track> tracks = RecordingImport.prepare(ffmpeg, folder, upload, fraction -> {});
 
         assertThat(tracks).extracting(Meeting.Track::kind).containsExactly(RecordingImport.AUDIO, RecordingImport.MIXED);
         assertThat(folder.resolve("recording.mp3")).isRegularFile();
@@ -45,10 +45,10 @@ class RecordingImportTest {
         Meeting.Track upload = upload("mp4", List.of("-f", "lavfi", "-i", "testsrc=size=320x240:rate=10:duration=3",
                 "-f", "lavfi", "-i", "sine=duration=3", "-c:v", "libopenh264", "-c:a", "aac", "-shortest"));
 
-        List<Meeting.Track> tracks = RecordingImport.prepare(ffmpeg, folder, upload);
+        List<Meeting.Track> tracks = RecordingImport.prepare(ffmpeg, folder, upload, fraction -> {});
 
         assertThat(tracks).extracting(Meeting.Track::kind).containsExactly(MeetingRecorder.SCREEN, RecordingImport.MIXED);
-        assertThat(RecordingImport.streams(ffmpeg, folder.resolve("recording.mp4"))).isEqualTo(new RecordingImport.Streams("h264", true));
+        assertThat(RecordingImport.streams(ffmpeg, folder.resolve("recording.mp4"))).isEqualTo(new RecordingImport.Streams("h264", 1));
         assertThat(tracks.getFirst().durationSeconds()).isCloseTo(3.0, within(0.3));
         assertWhisperReady(tracks.get(1), 3.0);
     }
@@ -58,23 +58,75 @@ class RecordingImportTest {
         Meeting.Track upload = upload("webm", List.of("-f", "lavfi", "-i", "testsrc=size=320x240:rate=10:duration=3",
                 "-f", "lavfi", "-i", "sine=duration=3", "-c:v", "libvpx-vp9", "-c:a", "libopus", "-shortest"));
 
-        RecordingImport.prepare(ffmpeg, folder, upload);
+        RecordingImport.prepare(ffmpeg, folder, upload, fraction -> {});
 
-        assertThat(RecordingImport.streams(ffmpeg, folder.resolve("recording.mp4"))).isEqualTo(new RecordingImport.Streams("h264", true));
+        assertThat(RecordingImport.streams(ffmpeg, folder.resolve("recording.mp4"))).isEqualTo(new RecordingImport.Streams("h264", 1));
         assertThat(folder.resolve("upload/source.webm")).doesNotExist();
+    }
+
+    @Test
+    void reencodedVideoIsCappedAt30FpsButSlowerVideoKeepsItsRate() throws IOException {
+        Meeting.Track fast = upload("webm", List.of("-f", "lavfi", "-i", "testsrc=size=320x240:rate=60:duration=2",
+                "-f", "lavfi", "-i", "sine=duration=2", "-c:v", "libvpx-vp9", "-deadline", "realtime", "-c:a", "libopus", "-shortest"));
+        RecordingImport.prepare(ffmpeg, folder, fast, fraction -> {});
+        assertThat(frameRate(folder.resolve("recording.mp4"))).isEqualTo("30/1");
+
+        Meeting.Track slow = upload("mkv", List.of("-f", "lavfi", "-i", "testsrc=size=320x240:rate=10:duration=2",
+                "-f", "lavfi", "-i", "sine=duration=2", "-c:v", "libvpx-vp9", "-c:a", "libopus", "-shortest"));
+        RecordingImport.prepare(ffmpeg, folder, slow, fraction -> {});
+        assertThat(frameRate(folder.resolve("recording.mp4"))).isEqualTo("10/1");
+    }
+
+    @Test
+    void separateAudioTracksAreMixedIntoOne() throws IOException {
+        Meeting.Track upload = upload("mkv", List.of("-f", "lavfi", "-i", "testsrc=size=320x240:rate=10:duration=3",
+                "-f", "lavfi", "-i", "sine=frequency=440:duration=3", "-f", "lavfi", "-i", "sine=frequency=880:duration=3",
+                "-map", "0:v", "-map", "1:a", "-map", "2:a", "-c:v", "libvpx-vp9", "-c:a", "libopus", "-shortest"));
+        assertThat(RecordingImport.streams(ffmpeg, folder.resolve(upload.file()))).isEqualTo(new RecordingImport.Streams("vp9", 2));
+
+        List<Meeting.Track> tracks = RecordingImport.prepare(ffmpeg, folder, upload, fraction -> {});
+
+        assertThat(RecordingImport.streams(ffmpeg, folder.resolve("recording.mp4"))).isEqualTo(new RecordingImport.Streams("h264", 1));
+        assertWhisperReady(tracks.get(1), 3.0);
+    }
+
+    @Test
+    void progressIsReportedUpToTheEnd() throws IOException {
+        Meeting.Track upload = upload("webm", List.of("-f", "lavfi", "-i", "testsrc=size=320x240:rate=10:duration=3",
+                "-f", "lavfi", "-i", "sine=duration=3", "-c:v", "libvpx-vp9", "-c:a", "libopus", "-shortest"));
+        List<Double> reported = new ArrayList<>();
+
+        RecordingImport.prepare(ffmpeg, folder, upload, reported::add);
+
+        assertThat(reported).isNotEmpty().isSorted().allMatch(f -> f >= 0 && f <= 1);
+        assertThat(reported.getLast()).isCloseTo(1.0, within(0.05));
+    }
+
+    @Test
+    void severalAudioTracksAreCounted() {
+        assertThat(RecordingImport.parseStreams("hevc,video\naac,audio\naac,audio\n")).isEqualTo(new RecordingImport.Streams("hevc", 2));
+        assertThat(RecordingImport.audioMap(2)).containsExactly("-filter_complex", "[0:a:0][0:a:1]amix=inputs=2:duration=longest[mixed]", "-map", "[mixed]");
+        assertThat(RecordingImport.audioMap(1)).containsExactly("-map", "0:a:0");
+    }
+
+    @Test
+    void reencodingUsesTheFastestNvencPreset() {
+        Path source = Path.of("source.mkv"), output = Path.of("recording.mp4");
+        assertThat(RecordingImport.videoArgs(source, "hevc", 1, output)).containsSequence("-c:v", "h264_nvenc", "-preset", "p1");
+        assertThat(RecordingImport.videoArgs(source, "h264", 1, output)).doesNotContain("-preset", "-fpsmax").containsSequence("-c:v", "copy");
     }
 
     @Test
     void fileWithoutSoundIsRejected() throws IOException {
         Meeting.Track upload = upload("mp4", List.of("-f", "lavfi", "-i", "testsrc=size=320x240:rate=10:duration=1", "-c:v", "libopenh264"));
 
-        assertThatThrownBy(() -> RecordingImport.prepare(ffmpeg, folder, upload)).hasMessageContaining("no sound");
+        assertThatThrownBy(() -> RecordingImport.prepare(ffmpeg, folder, upload, fraction -> {})).hasMessageContaining("no sound");
     }
 
     @Test
     void albumCoversAreNotVideo() {
-        assertThat(RecordingImport.parseStreams("mp3,audio\nmjpeg,video\n")).isEqualTo(new RecordingImport.Streams(null, true));
-        assertThat(RecordingImport.parseStreams("vp9,video\nopus,audio\n")).isEqualTo(new RecordingImport.Streams("vp9", true));
+        assertThat(RecordingImport.parseStreams("mp3,audio\nmjpeg,video\n")).isEqualTo(new RecordingImport.Streams(null, 1));
+        assertThat(RecordingImport.parseStreams("vp9,video\nopus,audio\n")).isEqualTo(new RecordingImport.Streams("vp9", 1));
     }
 
     @Test
@@ -102,6 +154,11 @@ class RecordingImportTest {
         Ffmpeg.Result result = ffmpeg.run(args, Duration.ofMinutes(1));
         assertThat(result.exitCode()).as(result.output()).isZero();
         return new Meeting.Track(RecordingImport.UPLOAD, "upload/source." + extension, 0, 0);
+    }
+
+    private static String frameRate(Path video) throws IOException {
+        return ffmpeg.probe(List.of("-v", "error", "-select_streams", "v:0", "-show_entries", "stream=avg_frame_rate",
+                "-of", "csv=p=0", video.toString()), Duration.ofSeconds(30)).output().strip();
     }
 
     private void assertWhisperReady(Meeting.Track speech, double seconds) throws IOException {

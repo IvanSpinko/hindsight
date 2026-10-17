@@ -1,9 +1,11 @@
 package org.example.visiontrack.meeting;
 
 import org.bytedeco.javacpp.Loader;
+import org.example.visiontrack.analysis.ProgressListener;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -24,6 +27,10 @@ public final class Ffmpeg {
 
     private static final Pattern DSHOW_DEVICE = Pattern.compile("\\[dshow @ [^]]+] \"(.+)\" \\((audio|video|none)\\)");
     private static final Pattern DDAGRAB_OUTPUT = Pattern.compile("Opened dxgi output (\\d+) with dimensions (\\d+)x(\\d+)");
+    /** A line of {@code -progress} output, like {@code frame=120} or {@code speed=4.1x}. */
+    private static final Pattern PROGRESS_LINE = Pattern.compile("[a-z0-9_]+=\\S*");
+    /** How much of the output has been written, in microseconds ({@code N/A} before the first frame). */
+    private static final Pattern PROGRESS_TIME = Pattern.compile("out_time_us=(\\d+)");
 
     private final Path ffmpeg;
     private final Path ffprobe;
@@ -51,11 +58,26 @@ public final class Ffmpeg {
 
     /** Runs ffmpeg to completion and returns its exit code and combined stdout/stderr. */
     public Result run(List<String> args, Duration timeout) throws IOException {
-        return execute(ffmpeg, args, timeout);
+        return execute(ffmpeg, args, timeout, null);
+    }
+
+    /**
+     * Runs ffmpeg like {@link #run} and reports how much of {@code durationSeconds} of input it has written, read
+     * from ffmpeg's {@code -progress} output (those lines are left out of the result).
+     */
+    public Result run(List<String> args, Duration timeout, double durationSeconds, ProgressListener progress) throws IOException {
+        List<String> withProgress = new ArrayList<>(List.of("-progress", "pipe:1", "-nostats"));
+        withProgress.addAll(args);
+        return execute(ffmpeg, withProgress, timeout, line -> {
+            Matcher m = PROGRESS_TIME.matcher(line);
+            if (m.matches() && durationSeconds > 0) {
+                progress.onProgress(Math.min(1.0, Long.parseLong(m.group(1)) / 1e6 / durationSeconds));
+            }
+        });
     }
 
     public Result probe(List<String> args, Duration timeout) throws IOException {
-        return execute(ffprobe, args, timeout);
+        return execute(ffprobe, args, timeout, null);
     }
 
     /** Container duration in seconds, or 0 when it cannot be read. */
@@ -125,20 +147,28 @@ public final class Ffmpeg {
         return args;
     }
 
-    private static Result execute(Path executable, List<String> args, Duration timeout) throws IOException {
+    /** {@code progressLines} receives the {@code key=value} lines of {@code -progress} output; null when not asked for. */
+    private static Result execute(Path executable, List<String> args, Duration timeout, Consumer<String> progressLines) throws IOException {
         List<String> command = new ArrayList<>(args.size() + 1);
         command.add(executable.toString());
         command.addAll(args);
         Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
         process.getOutputStream().close();
-        try (InputStream out = process.getInputStream()) {
+        try (BufferedReader out = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             // Drain on this thread; the commands we run print little and finish on their own
-            byte[] bytes = out.readAllBytes();
+            StringBuilder output = new StringBuilder();
+            for (String line; (line = out.readLine()) != null; ) {
+                if (progressLines != null && PROGRESS_LINE.matcher(line).matches()) {
+                    progressLines.accept(line);
+                } else {
+                    output.append(line).append('\n');
+                }
+            }
             if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly();
                 throw new IOException("ffmpeg did not finish in " + timeout.toSeconds() + " s");
             }
-            return new Result(process.exitValue(), new String(bytes, StandardCharsets.UTF_8));
+            return new Result(process.exitValue(), output.toString());
         } catch (InterruptedException e) {
             process.destroyForcibly();
             Thread.currentThread().interrupt();
