@@ -1,11 +1,12 @@
-VisionTrack - finds objects in videos and shows when each one appeared.
+Hindsight - see what happened, remember what was said.
+Finds objects in videos and shows when each one appeared, and records meetings on this computer.
 
 GETTING STARTED
   1. Unpack the archive into any folder (for example, Documents).
-  2. Run VisionTrack.exe.
+  2. Run Hindsight.exe.
      The app window opens after a few seconds. The object detection model loads the first time
      you analyse a video or start the camera, so that first run takes a little longer.
-  3. Desktop shortcut: right-click VisionTrack.exe -> Show more options
+  3. Desktop shortcut: right-click Hindsight.exe -> Show more options
      -> Send to -> Desktop (create shortcut).
 
   If Windows shows "Windows protected your PC", click

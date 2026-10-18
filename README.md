@@ -1,8 +1,13 @@
-# VisionTrack – video object analysis
+# Hindsight – see what happened, remember what was said
 
-Upload a video; VisionTrack detects objects with a YOLO model (ONNX Runtime), tracks them across
-frames so each physical object is counted once, and reports **how many objects of each type**
-appeared and the **timecode when each one was first (and last) seen**.
+Hindsight is a local Windows app with two modes. **Videos:** upload a video and Hindsight detects objects
+with a YOLO model (ONNX Runtime), tracks them across frames so each physical object is counted once, and
+reports **how many objects of each type** appeared and the **timecode when each one was first (and last)
+seen**. **Meetings:** record a call (or upload a recording) and get a transcript and notes written by local
+models on the GPU; nothing leaves the computer.
+
+The project started as VisionTrack: the Java package, the `visiontrack.*` settings and the data folders
+(`Documents\VisionTrack`, `%LOCALAPPDATA%\VisionTrack`) still use that name.
 
 ## Run locally
 
@@ -192,7 +197,7 @@ java -jar target/visiontrack-object-detection-aws-1.0-SNAPSHOT.jar --spring.prof
 `VISIONTRACK_AWS_PROFILE` names a profile in `~/.aws/config`; without it the default chain is used
 (`AWS_PROFILE`, then the `default` profile, which may be a different account).
 
-**Desktop app (`VisionTrack.exe`).** The exe reads an optional per-user file
+**Desktop app (`Hindsight.exe`).** The exe reads an optional per-user file
 `%LOCALAPPDATA%\VisionTrack\application.yml` on start. Create it with:
 
 ```yaml

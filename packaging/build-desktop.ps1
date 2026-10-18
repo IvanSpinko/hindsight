@@ -1,4 +1,4 @@
-# Builds the portable desktop app: dist\VisionTrack\VisionTrack.exe (+ bundled Java) and dist\VisionTrack.zip
+# Builds the portable desktop app: dist\Hindsight\Hindsight.exe (+ bundled Java) and dist\Hindsight.zip
 # Usage (from the project root):  powershell -ExecutionPolicy Bypass -File packaging\build-desktop.ps1
 param(
     [string]$Model = "yoloworldx-960.onnx",
@@ -37,12 +37,12 @@ New-Item -ItemType Directory -Force "$staging\models" | Out-Null
 Copy-Item "target\visiontrack-object-detection-aws-1.0-SNAPSHOT.jar" "$staging\visiontrack.jar"
 Copy-Item "models\$Model", "models\classes.txt" "$staging\models\"
 
-Write-Host "3/4 Packaging VisionTrack.exe (takes a minute)..."
-if (Test-Path "dist\VisionTrack") { Remove-Item -Recurse -Force "dist\VisionTrack" }
+Write-Host "3/4 Packaging Hindsight.exe (takes a minute)..."
+if (Test-Path "dist\Hindsight") { Remove-Item -Recurse -Force "dist\Hindsight" }
 & $jpackage --type app-image `
-    --name VisionTrack `
+    --name Hindsight `
     --app-version $Version `
-    --description "Finds objects in videos" `
+    --description "Hindsight - see what happened, remember what was said" `
     --icon "packaging\visiontrack.ico" `
     --input $staging `
     --main-jar visiontrack.jar `
@@ -57,7 +57,7 @@ if ($LASTEXITCODE -ne 0) { throw "jpackage failed" }
 # The JDK bundles an older VC++ runtime (14.36) that the exe loads before our code runs, and
 # onnxruntime needs 14.4x+. Ship the newer System32 copies instead (app-local deployment is allowed).
 foreach ($dll in "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll") {
-    Copy-Item "$env:SystemRoot\System32\$dll" "dist\VisionTrack\runtime\bin\$dll" -Force
+    Copy-Item "$env:SystemRoot\System32\$dll" "dist\Hindsight\runtime\bin\$dll" -Force
 }
 # onnxruntime_gpu needs the CUDA 12 runtime and cuDNN 9, which only come with the CUDA Toolkit, not
 # with the NVIDIA driver. Ship them in app\cuda; the app pre-loads them (visiontrack.model.native-dir)
@@ -69,15 +69,15 @@ if ($missing -or -not $cudnn) {
     throw "CUDA 12 / cuDNN 9 DLLs not found (missing: $missing; cuDNN: $CudnnBin). Pass -CudaBin/-CudnnBin"
 }
 Write-Host "     Adding CUDA $CudaBin and cuDNN $CudnnBin DLLs..."
-$cudaDir = "dist\VisionTrack\app\cuda"
+$cudaDir = "dist\Hindsight\app\cuda"
 New-Item -ItemType Directory -Force $cudaDir | Out-Null
 Copy-Item $cuda $cudaDir
 $cudnn | Copy-Item -Destination $cudaDir
-Copy-Item "packaging\README.txt" "dist\VisionTrack\README.txt"
+Copy-Item "packaging\README.txt" "dist\Hindsight\README.txt"
 
 if (-not $NoZip) {
-    Write-Host "4/4 Creating dist\VisionTrack.zip..."
-    if (Test-Path "dist\VisionTrack.zip") { Remove-Item "dist\VisionTrack.zip" }
-    tar.exe -a -c -f "dist\VisionTrack.zip" -C dist VisionTrack
+    Write-Host "4/4 Creating dist\Hindsight.zip..."
+    if (Test-Path "dist\Hindsight.zip") { Remove-Item "dist\Hindsight.zip" }
+    tar.exe -a -c -f "dist\Hindsight.zip" -C dist Hindsight
 }
-Write-Host "Done: dist\VisionTrack\VisionTrack.exe"
+Write-Host "Done: dist\Hindsight\Hindsight.exe"

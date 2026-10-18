@@ -21,7 +21,7 @@ public class LocalRequestsOnly {
     @ModelAttribute
     void requireLocalRequest(HttpServletRequest request) {
         if (!isLoopback(request.getRemoteAddr())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "VisionTrack can only be used from this computer");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Hindsight can only be used from this computer");
         }
     }
 
