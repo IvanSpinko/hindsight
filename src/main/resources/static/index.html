@@ -1598,12 +1598,16 @@ window.actionMenu = (() => {
         notifyDone('Meeting processing failed', meeting.title, 'failed');
       }
       lastStatus.set(meeting.id, meeting.status);
+      const sent = meeting.notion?.state;
+      if (lastNotion.get(meeting.id) === 'EXPORTING' && sent === 'EXPORTED') notifyDone('Sent to Notion', meeting.title, 'done');
+      if (lastNotion.get(meeting.id) === 'EXPORTING' && sent === 'FAILED') notifyDone('Sending to Notion failed', meeting.title, 'failed');
+      lastNotion.set(meeting.id, sent);
     }
     allMeetings = items;
     if (actionMenu.isOpen()) listWaiting = true;   // redrawing would close the open menu
     else renderList();
-    // Keep refreshing while something is being processed
-    const busy = items.some(i => ['RECORDED', 'PROCESSING'].includes(i.meeting.status));
+    // Keep refreshing while something is being processed or sent
+    const busy = items.some(i => ['RECORDED', 'PROCESSING'].includes(i.meeting.status) || i.meeting.notion?.state === 'EXPORTING');
     clearTimeout(poll);
     if (busy) poll = setTimeout(loadMeetings, 2000);
   }
@@ -1624,6 +1628,7 @@ window.actionMenu = (() => {
   const panels = new Map();        // meeting id -> { kind, node }: reused, so a playing recording keeps playing
   const textCache = new Map();     // 'notes:<id>' / 'transcript:<id>' -> Markdown text
   const lastStatus = new Map();    // meeting id -> status at the previous refresh
+  const lastNotion = new Map();    // meeting id -> Notion export state at the previous refresh
   document.addEventListener('menuclose', () => { if (listWaiting) { listWaiting = false; renderList(); } });
 
   // Drops what was loaded for a meeting, e.g. after it was processed again
@@ -1694,13 +1699,17 @@ window.actionMenu = (() => {
     if (folder) {
       items.push({ label: 'Open folder', onClick: () => api(`/api/meetings/${id}/open-folder`, { method: 'POST' }).catch(e => showError(e.message)) });
     }
-    if (['READY', 'FAILED'].includes(meeting.status) && meeting.tracks.length) {
+    const sending = meeting.notion?.state === 'EXPORTING';
+    if (meeting.status === 'READY' && meeting.notes && !sending) {
+      items.push({ label: meeting.notion?.pageId ? 'Send to Notion again' : 'Send to Notion', onClick: () => sendToNotion(meeting) });
+    }
+    if (['READY', 'FAILED'].includes(meeting.status) && meeting.tracks.length && !sending) {
       items.push({ label: 'Process again', onClick: () => {
         forget(id);
         api(`/api/meetings/${id}/process`, { method: 'POST' }).then(loadMeetings).catch(e => showError(e.message));
       } });
     }
-    if (['RECORDED', 'READY', 'FAILED'].includes(meeting.status)) {
+    if (['RECORDED', 'READY', 'FAILED'].includes(meeting.status) && !sending) {
       if (items.length) items.push('-');
       items.push({ label: 'Delete…', danger: true, onClick: () => deleteMeeting(meeting) });
     }
@@ -1723,6 +1732,15 @@ window.actionMenu = (() => {
       line.append(fact(n.decisions, n.decisions === 1 ? 'decision' : 'decisions'),
         fact(n.actionItems, n.actionItems === 1 ? 'action item' : 'action items'));
     }
+    const notion = meeting.notion;
+    if (meeting.status === 'READY' && notion?.state === 'EXPORTING') line.append(el('span', 'muted', 'Sending to Notion…'));
+    if (meeting.status === 'READY' && notion?.url && notion.state !== 'EXPORTING') {
+      const link = el('a', 'link', 'Open in Notion ↗');
+      link.href = notion.url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      line.append(link);
+    }
     if (meeting.warnings.length) {
       const k = meeting.warnings.length;
       const chip = el('button', 'warn-chip', `⚠ ${k} ${k === 1 ? 'warning' : 'warnings'}`);
@@ -1744,6 +1762,13 @@ window.actionMenu = (() => {
       div.append(bar, el('div', 'path', `${meeting.processing.step}… ${meeting.processing.percent}%`));
     }
     if (meeting.error) div.append(el('div', 'm-msg err', meeting.error));
+    if (meeting.status === 'READY' && notion?.state === 'FAILED') {
+      const msg = el('div', 'm-msg err', `Notion: ${notion.error || 'sending failed'} `);
+      const retry = el('button', 'link', 'Retry');
+      retry.addEventListener('click', () => sendToNotion(meeting, true));
+      msg.append(retry);
+      div.append(msg);
+    }
 
     // Notes | Transcript | Recording: one is shown inside the card, a second click closes it
     if (meeting.status === 'READY') {
@@ -1786,6 +1811,35 @@ window.actionMenu = (() => {
       div.append(details);
     }
     return div;
+  }
+
+  // Notion: explains the setup when it is missing; sending again replaces the page (the old one goes to Notion's trash)
+  async function sendToNotion(meeting, retry = false) {
+    let status;
+    try {
+      status = await api('/api/meetings/notion');
+    } catch (e) {
+      showError(e.message);
+      return;
+    }
+    if (!status.tokenSet || !status.targetSet) {
+      alert('Notion is not set up yet.\n\n' +
+        '1. Create an internal integration at notion.so/profile/integrations and copy its token.\n' +
+        '2. In Notion, open the page where the "Meetings" database should go: ••• → Connections → add the integration.\n' +
+        `3. Put both into ${status.settingsFile}:\n\n` +
+        '{\n  "notion": {\n    "token": "<the token>",\n    "parentPageId": "<link of that page>"\n  }\n}\n\n' +
+        'Then send the meeting again. The token stays on this computer.');
+      return;
+    }
+    if (!retry && meeting.notion?.pageId &&
+        !confirm(`Replace the Notion page of "${meeting.title}"?\n\nA new page is written with the current notes; the old one goes to Notion's trash.`)) return;
+    try {
+      await api(`/api/meetings/${meeting.id}/notion`, { method: 'POST' });
+      hideError();
+    } catch (e) {
+      showError(e.message);
+    }
+    loadMeetings();
   }
 
   async function deleteMeeting(meeting) {
