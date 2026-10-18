@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Processes recorded meetings in the background, one at a time: recognises the speech, then has a local model
- * write the notes; the Notion export is added later. The screen recording is only kept for people to watch.
+ * write the notes, which go to Notion afterwards when the user turned that on. The screen recording is only kept for people to watch.
  * Progress is saved in {@code meeting.json}, and meetings interrupted by a restart are processed again on the next
  * start.
  */
@@ -55,6 +55,7 @@ public class MeetingJobService {
     private final NotesExporter markdown = new MarkdownExporter();
     /** Object detection is unloaded while a meeting is processed, so the speech and notes models have the GPU. */
     private final ObjectDetectorProvider detectors;
+    private final NotionExportService notion;
     private final Set<String> queued = ConcurrentHashMap.newKeySet();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "meeting-processing");
@@ -63,9 +64,10 @@ public class MeetingJobService {
     });
 
     public MeetingJobService(MeetingStore store, VisionTrackProperties properties, ObjectMapper objectMapper,
-                             ObjectDetectorProvider detectors) {
+                             ObjectDetectorProvider detectors, NotionExportService notion) {
         this.store = store;
         this.detectors = detectors;
+        this.notion = notion;
         VisionTrackProperties.Meetings settings = properties.meetings();
         this.whisper = settings.whisper();
         this.ffmpegDir = settings.ffmpegDir();
@@ -103,6 +105,7 @@ public class MeetingJobService {
             store.find(id).ifPresent(m -> store.save(m.ready(transcription, notes)));
             log.info("Meeting {} processed: {} speech segments, notes {}", id,
                     transcription == null ? 0 : transcription.segments(), notes == null ? "skipped" : "written");
+            if (notes != null) notion.afterProcessing(id);
         } catch (GpuRequiredException e) {
             log.error("Meeting {}: {}", id, e.getMessage(), e.getCause());
             store.find(id).ifPresent(m -> store.save(m.failed(e.getMessage())));

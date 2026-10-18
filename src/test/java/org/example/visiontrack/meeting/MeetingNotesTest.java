@@ -59,7 +59,7 @@ class MeetingNotesTest {
     @Test
     void markdownHasEverySectionWithCheckboxesAndTheTranscriptLink() {
         Meeting meeting = new Meeting("id", "Weekly", Meeting.Status.READY, Instant.parse("2026-10-14T10:00:00Z"), null,
-                null, null, List.of(new Meeting.Track("mic", "audio/mic.wav", 0, 1830)), null, null, null, null, null, null);
+                null, null, List.of(new Meeting.Track("mic", "audio/mic.wav", 0, 1830)), null, null, null, null, null, null, null);
         MeetingNotes notes = new MeetingNotes("Release planning", "call", "VisionTrack", List.of("release"), List.of("Anna"),
                 "We agreed on the release date.", List.of("Ship on Friday"),
                 List.of(new MeetingNotes.ActionItem("Prepare the budget", "Anna", "2026-10-20", "00:12:40"),

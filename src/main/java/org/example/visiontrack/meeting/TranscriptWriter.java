@@ -72,7 +72,7 @@ final class TranscriptWriter {
     }
 
     /** Consecutive segments of the same speaker and language, split at longer pauses. */
-    private static List<List<TranscriptSegment>> paragraphs(List<TranscriptSegment> segments) {
+    static List<List<TranscriptSegment>> paragraphs(List<TranscriptSegment> segments) {
         List<List<TranscriptSegment>> paragraphs = new ArrayList<>();
         List<TranscriptSegment> current = new ArrayList<>();
         for (TranscriptSegment s : segments) {

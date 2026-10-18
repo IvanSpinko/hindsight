@@ -6,6 +6,7 @@ import org.example.visiontrack.meeting.MeetingImporter;
 import org.example.visiontrack.meeting.MeetingJobService;
 import org.example.visiontrack.meeting.MeetingRecorder;
 import org.example.visiontrack.meeting.MeetingStore;
+import org.example.visiontrack.meeting.NotionExportService;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
@@ -30,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @RestController
 @RequestMapping("/api/meetings")
@@ -41,12 +43,21 @@ public class MeetingController {
     private final MeetingStore store;
     private final MeetingJobService jobs;
     private final MeetingImporter importer;
+    private final NotionExportService notion;
 
-    public MeetingController(MeetingRecorder recorder, MeetingStore store, MeetingJobService jobs, MeetingImporter importer) {
+    public MeetingController(MeetingRecorder recorder, MeetingStore store, MeetingJobService jobs, MeetingImporter importer,
+                             NotionExportService notion) {
         this.recorder = recorder;
         this.store = store;
         this.jobs = jobs;
         this.importer = importer;
+        this.notion = notion;
+    }
+
+    /** Whether the Notion export is set up (never the token), for the meeting cards. */
+    @GetMapping("/notion")
+    public NotionExportService.Status notionStatus() {
+        return notion.status();
     }
 
     @GetMapping("/devices")
@@ -82,8 +93,21 @@ public class MeetingController {
         if (meeting.status() == Meeting.Status.RECORDING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The meeting is still being recorded");
         }
+        refuseWhileSending(meeting);
         jobs.submit(id);
         return ResponseEntity.accepted().body(response(store.find(id).orElseThrow()));
+    }
+
+    /** Sends the notes to Notion in the background; a page sent before is replaced. */
+    @PostMapping("/{id}/notion")
+    public ResponseEntity<MeetingResponse> sendToNotion(@PathVariable("id") String id) {
+        try {
+            return ResponseEntity.accepted().body(response(notion.submit(id)));
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found");
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        }
     }
 
     /** Deletes the meeting folder: recording, audio, transcript and notes. Not while it is recorded or processed. */
@@ -96,6 +120,7 @@ public class MeetingController {
         if (meeting.status() == Meeting.Status.PROCESSING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The meeting is still being processed");
         }
+        refuseWhileSending(meeting);
         try {
             store.delete(id);
         } catch (NoSuchFileException e) {
@@ -159,6 +184,12 @@ public class MeetingController {
         }
         new ProcessBuilder("explorer.exe", folder.toString()).start();
         return ResponseEntity.noContent().build();
+    }
+
+    private static void refuseWhileSending(Meeting meeting) {
+        if (meeting.notion() != null && meeting.notion().state() == Meeting.NotionState.EXPORTING) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The notes are being sent to Notion, try again in a moment");
+        }
     }
 
     private MeetingResponse response(Meeting meeting) {
