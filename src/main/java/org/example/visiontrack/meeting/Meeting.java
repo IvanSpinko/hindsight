@@ -31,7 +31,8 @@ public record Meeting(
         String error,
         Processing processing,
         Transcription transcription,
-        NotesInfo notes
+        NotesInfo notes,
+        NotionExport notion
 ) {
 
     public enum Status { RECORDING, RECORDED, PROCESSING, READY, FAILED }
@@ -47,6 +48,14 @@ public record Meeting(
 
     public record Track(String kind, String file, long startOffsetMillis, double durationSeconds) {}
 
+    /**
+     * The notes sent to Notion: the page that holds them now ({@code pageId}, {@code url}, kept when a later attempt
+     * fails, so it can still be replaced), when it was written, and the last error. Null: never sent.
+     */
+    public record NotionExport(NotionState state, String pageId, String url, Instant exportedAt, String error) {}
+
+    public enum NotionState { EXPORTING, EXPORTED, FAILED }
+
     public Meeting {
         tracks = tracks == null ? List.of() : List.copyOf(tracks);
         capturePids = capturePids == null ? List.of() : List.copyOf(capturePids);
@@ -56,14 +65,14 @@ public record Meeting(
     static Meeting recording(String id, String title, String screenCapture, String microphone, List<Track> tracks,
                              List<Long> capturePids) {
         return new Meeting(id, title, Status.RECORDING, Instant.now(), null, screenCapture, microphone, tracks, capturePids,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
     }
 
     /** An uploaded recording, ready to be prepared and processed; {@code screenCapture} names the uploaded file. */
     static Meeting uploaded(String id, String title, String fileName, List<Track> tracks) {
         Instant now = Instant.now();
         return new Meeting(id, title, Status.RECORDED, now, now, "Uploaded: " + fileName, null, tracks, null,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
     }
 
     /** The same meeting with its tracks replaced, e.g. an uploaded file turned into playable and speech tracks. */
@@ -71,42 +80,47 @@ public record Meeting(
         double duration = newTracks.stream().mapToDouble(Track::durationSeconds).max().orElse(0);
         Instant end = startedAt.plusMillis(Math.round(duration * 1000));
         return new Meeting(id, title, status, startedAt, end, screenCapture, microphone, newTracks, capturePids, warnings,
-                error, processing, transcription, notes);
+                error, processing, transcription, notes, notion);
     }
 
     Meeting withWarning(String warning) {
         List<String> all = new ArrayList<>(warnings);
         if (!all.contains(warning)) all.add(warning);
         return new Meeting(id, title, status, startedAt, stoppedAt, screenCapture, microphone, tracks, capturePids, all,
-                error, processing, transcription, notes);
+                error, processing, transcription, notes, notion);
     }
 
     /** Drops the warnings of one processing step (they start with {@code prefix}) before it runs again. */
     Meeting withoutWarnings(String prefix) {
         List<String> kept = warnings.stream().filter(w -> !w.startsWith(prefix)).toList();
         return new Meeting(id, title, status, startedAt, stoppedAt, screenCapture, microphone, tracks, capturePids, kept,
-                error, processing, transcription, notes);
+                error, processing, transcription, notes, notion);
     }
 
     Meeting recorded(Instant stoppedAt, List<Track> finalTracks) {
         return new Meeting(id, title, Status.RECORDED, startedAt, stoppedAt, screenCapture, microphone, finalTracks, null,
-                warnings, null, null, transcription, notes);
+                warnings, null, null, transcription, notes, notion);
     }
 
     Meeting processing(String step, int percent) {
         return new Meeting(id, title, Status.PROCESSING, startedAt, stoppedAt, screenCapture, microphone, tracks, null,
-                warnings, null, new Processing(step, percent), transcription, notes);
+                warnings, null, new Processing(step, percent), transcription, notes, notion);
     }
 
     Meeting ready(Transcription transcription, NotesInfo notes) {
         return new Meeting(id, title, Status.READY, startedAt, stoppedAt, screenCapture, microphone, tracks, null,
-                warnings, null, null, transcription, notes);
+                warnings, null, null, transcription, notes, notion);
     }
 
     Meeting failed(String error) {
         Instant end = stoppedAt == null ? Instant.now() : stoppedAt;
         return new Meeting(id, title, Status.FAILED, startedAt, end, screenCapture, microphone, tracks, null,
-                warnings, error, null, transcription, notes);
+                warnings, error, null, transcription, notes, notion);
+    }
+
+    Meeting withNotion(NotionExport export) {
+        return new Meeting(id, title, status, startedAt, stoppedAt, screenCapture, microphone, tracks, capturePids, warnings,
+                error, processing, transcription, notes, export);
     }
 
     /** The recording file to process: the combined recording, or the screen video if combining failed. */

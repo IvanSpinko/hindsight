@@ -1,8 +1,13 @@
-# VisionTrack – video object analysis
+# Hindsight – see what happened, remember what was said
 
-Upload a video; VisionTrack detects objects with a YOLO model (ONNX Runtime), tracks them across
-frames so each physical object is counted once, and reports **how many objects of each type**
-appeared and the **timecode when each one was first (and last) seen**.
+Hindsight is a local Windows app with two modes. **Videos:** upload a video and Hindsight detects objects
+with a YOLO model (ONNX Runtime), tracks them across frames so each physical object is counted once, and
+reports **how many objects of each type** appeared and the **timecode when each one was first (and last)
+seen**. **Meetings:** record a call (or upload a recording) and get a transcript and notes written by local
+models on the GPU; nothing leaves the computer.
+
+The project started as VisionTrack: the Java package, the `visiontrack.*` settings and the data folders
+(`Documents\VisionTrack`, `%LOCALAPPDATA%\VisionTrack`) still use that name.
 
 ## Run locally
 
@@ -37,6 +42,8 @@ Open http://localhost:8080, drop in a video and wait for the results. Settings l
 | GET    | `/api/meetings/{id}/transcript`   | the transcript (`transcript.md`)                          |
 | GET    | `/api/meetings/{id}/recording`    | the screen recording with sound, playable in the browser  |
 | POST   | `/api/meetings/{id}/open-folder`  | opens the meeting folder in Explorer                      |
+| GET    | `/api/meetings/notion`            | whether the Notion export is set up (never the token)     |
+| POST   | `/api/meetings/{id}/notion`       | sends the notes to Notion in the background; a page sent before is replaced |
 
 Recordings go to `Documents\VisionTrack\Meetings\<date>_<time>_<title>\`. The screen (ffmpeg `ddagrab`,
 falling back to `gdigrab`, 30 fps, encoded by NVENC), the microphone (`dshow`, 16 kHz mono) and the system sound,
@@ -51,6 +58,34 @@ llama.cpp, writes the notes (`notes.md`, `notes.json`: summary, decisions, actio
 timeline, open questions). Everything runs offline on the GPU. Install the programs and models once with
 `powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1` (downloads ~10 GB into `tools\` and
 `models\` and builds the system sound helper with the C# compiler built into Windows); without them meetings are still recorded, only the transcript or the notes are skipped.
+
+#### Notes in Notion (optional)
+
+A processed meeting can be sent to Notion ("Send to Notion" in the meeting's menu): a page in a "Meetings" database
+with the properties Name, Date, Duration (min), Type, Project, Tags and Participants, and a body with the summary,
+decisions, action items as to-dos, the timeline, open questions and the transcript in a section that opens on
+click. Only these notes leave the computer, and only when you send them.
+
+1. Create an internal integration at [notion.so/profile/integrations](https://www.notion.so/profile/integrations)
+   with the capabilities to read, insert and update content, and copy its token.
+2. In Notion, open the page that should hold the database: `•••` → Connections → add the integration.
+3. Create `%LOCALAPPDATA%\VisionTrack\settings.json` (read on every send, no restart needed):
+
+   ```json
+   {
+     "notion": {
+       "token": "<the integration token>",
+       "parentPageId": "<link of that page>",
+       "autoExport": false
+     }
+   }
+   ```
+
+The first send creates the database in that page and writes its `databaseId` and `dataSourceId` into the file
+(to use a database of your own instead, put its link into `databaseId`; its columns must have the names and types
+above). `autoExport: true` sends every meeting after processing. Sending again writes a new page and moves the old
+one to Notion's trash. The file holds a secret: it is in `.gitignore`, and the app never logs it. Notion API version
+`2026-03-11`; requests are spaced to stay under Notion's limit of about three per second and retried on `429`.
 
 ```bash
 curl -F "file=@street.mp4" http://localhost:8080/api/analyses
@@ -192,7 +227,7 @@ java -jar target/visiontrack-object-detection-aws-1.0-SNAPSHOT.jar --spring.prof
 `VISIONTRACK_AWS_PROFILE` names a profile in `~/.aws/config`; without it the default chain is used
 (`AWS_PROFILE`, then the `default` profile, which may be a different account).
 
-**Desktop app (`VisionTrack.exe`).** The exe reads an optional per-user file
+**Desktop app (`Hindsight.exe`).** The exe reads an optional per-user file
 `%LOCALAPPDATA%\VisionTrack\application.yml` on start. Create it with:
 
 ```yaml

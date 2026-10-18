@@ -1,4 +1,4 @@
-# Used by the packaged desktop app (VisionTrack.exe), see packaging/build-desktop.ps1
+# Used by the packaged desktop app (Hindsight.exe), see packaging/build-desktop.ps1
 spring:
   config:
     # Optional per-user overrides next to the log, e.g. the cloud export (README, "Enable the export")

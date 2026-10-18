@@ -62,7 +62,7 @@ public class BrowserLauncher {
     @EventListener(ApplicationReadyEvent.class)
     public void openBrowser() {
         String url = "http://127.0.0.1:" + environment.getProperty("local.server.port", "8080");
-        log.info("VisionTrack is running at {}", url);
+        log.info("Hindsight is running at {}", url);
         if (trayIcon) addTrayIcon(url);
         open(url);
     }
@@ -74,7 +74,7 @@ public class BrowserLauncher {
         }
         try (InputStream image = getClass().getResourceAsStream("/tray-icon.png")) {
             PopupMenu menu = new PopupMenu();
-            MenuItem openItem = new MenuItem("Open VisionTrack");
+            MenuItem openItem = new MenuItem("Open Hindsight");
             openItem.addActionListener(e -> open(url));
             MenuItem quitItem = new MenuItem("Quit");
             menu.add(openItem);
@@ -82,7 +82,7 @@ public class BrowserLauncher {
             menu.add(quitItem);
 
             BufferedImage base = ImageIO.read(image);
-            TrayIcon icon = new TrayIcon(base, "VisionTrack", menu);
+            TrayIcon icon = new TrayIcon(base, "Hindsight", menu);
             icon.setImageAutoSize(true);
             icon.addActionListener(e -> open(url));
             quitItem.addActionListener(e -> {
@@ -108,13 +108,13 @@ public class BrowserLauncher {
             if (recordingTimer != null) recordingTimer.stop();
             if (event.recording()) {
                 tray.setImage(recordingImage);
-                recordingTimer = new Timer(1000, e -> tray.setToolTip("VisionTrack ● REC " + elapsed(event.startedAt())));
+                recordingTimer = new Timer(1000, e -> tray.setToolTip("Hindsight ● REC " + elapsed(event.startedAt())));
                 recordingTimer.setInitialDelay(0);
                 recordingTimer.start();
             } else {
                 recordingTimer = null;
                 tray.setImage(idleImage);
-                tray.setToolTip("VisionTrack");
+                tray.setToolTip("Hindsight");
             }
         });
     }

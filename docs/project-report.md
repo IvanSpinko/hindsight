@@ -52,7 +52,7 @@ Without a CUDA-capable NVIDIA GPU the app still starts, but the heavy features a
 | Build only the system sound helper | `powershell -ExecutionPolicy Bypass -File packaging\build-loopback.ps1` |
 | Run | `java -jar target\visiontrack-object-detection-aws-1.0-SNAPSHOT.jar`, open http://localhost:8080 |
 | Run on another port, no browser | add `--server.port=18080 --visiontrack.open-browser=false` |
-| Desktop app (exe + bundled Java) | `powershell -ExecutionPolicy Bypass -File packaging\build-desktop.ps1` → `dist\VisionTrack\` and `dist\VisionTrack.zip` |
+| Desktop app (exe + bundled Java) | `powershell -ExecutionPolicy Bypass -File packaging\build-desktop.ps1` → `dist\Hindsight\` and `dist\Hindsight.zip` |
 
 `get-models.ps1` downloads and installs:
 - whisper.cpp build `b5454` (CUDA 12.4) → `tools\whisper` (server, VAD tool, DLLs, ~1.1 GB);
