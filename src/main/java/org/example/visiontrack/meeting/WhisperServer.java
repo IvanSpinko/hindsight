@@ -22,10 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-/**
- * A whisper.cpp {@code whisper-server} process on 127.0.0.1, so the model is loaded once per meeting and
- * then freed (with its VRAM) when processing ends.
- */
+/** A whisper-server process on 127.0.0.1, started for one meeting and stopped after. */
 final class WhisperServer implements AutoCloseable {
 
     /** A recognised piece; {@code noSpeech} and {@code logProb} tell how sure Whisper is that it heard speech. */

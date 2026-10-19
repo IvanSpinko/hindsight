@@ -236,7 +236,7 @@ steps and polled by the page every 2 s.
    - Silero VAD (`whisper-vad-speech-segments.exe`, on the CPU) finds speech; pauses of 0.3 s separate segments;
    - `SpeechChunks` groups them into pieces of ≤ 30 s (a pause ≥ 2 s always splits, ≥ 0.8 s splits after 10 s);
      silence is never sent (avoids Whisper inventing text);
-   - each piece is sent with `language=auto`; if Whisper detects a language outside `[ru, en]`, the piece is redone
+   - each piece is sent with `language=auto`; if Whisper detects a language outside `[en, ru]`, the piece is redone
      with the likeliest allowed language, so a meeting switching between Russian and English is handled per piece;
    - pieces Whisper itself marks as probably not speech (no-speech > 0.6 and log-prob < -1) and sound labels
      ("*music playing*", "[Music]", "(applause)", music notes) are dropped; words split across pieces are joined;
@@ -366,7 +366,7 @@ meeting processing fails with "needs an NVIDIA graphics card", recording still w
 | `meetings.system-audio-helper` | `tools/audio-loopback/audio-loopback.exe` | system sound |
 | `meetings.speech-engine` | `parakeet` | `parakeet` or `whisper` |
 | `meetings.parakeet.directory` | `models/parakeet-tdt-0.6b-v3` | Parakeet ONNX files |
-| `meetings.whisper.directory`, `model`, `vad-model`, `languages` | `tools/whisper`, large-v3-turbo q8_0, Silero v5.1.2, `[ru, en]` | speech |
+| `meetings.whisper.directory`, `model`, `vad-model`, `languages` | `tools/whisper`, large-v3-turbo q8_0, Silero v5.1.2, `[en, ru]` | speech |
 | `meetings.notes.directory`, `model` | `tools/llama`, `models/llm/gemma-4-12b-it-qat-q4_0.gguf` | notes model |
 | `meetings.notes.chunk-minutes`, `context-tokens`, `max-tokens` | 10, 16384, 4096 | notes chunking and limits |
 

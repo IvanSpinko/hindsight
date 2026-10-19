@@ -21,9 +21,8 @@ import java.util.function.DoubleSupplier;
 import java.util.stream.Stream;
 
 /**
- * Sends finished files from {@code outbox/} to the cloud and moves them to {@code uploaded/} (same relative
- * path). A failed file waits 5 s, 10 s, 20 s ... up to 15 min (with jitter) before its next try; the app keeps
- * working offline and the outbox simply drains when the network or credentials are back.
+ * Uploads finished files from {@code outbox/} and moves them to {@code uploaded/}.
+ * Failures are retried with backoff (up to 15 min), so the app keeps working offline.
  */
 public class OutboxUploader {
 

@@ -18,11 +18,8 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * The few Notion API calls the export needs, with plain {@link HttpClient} and Jackson (no SDK).
- * Requests are spaced to stay under Notion's average of three per second; answers 429 (rate limited) and 529
- * (overloaded) are retried after {@code Retry-After} or an exponential backoff. Server errors are retried only
- * for reads: a failed write may still have been saved, and writing it twice would duplicate the content.
- * The token is sent only in the {@code Authorization} header and never logged.
+ * The few Notion API calls the export needs, with plain HttpClient. Requests are rate limited and
+ * retried on 429/529; writes are not retried on server errors, so nothing is written twice.
  */
 public final class NotionClient {
 

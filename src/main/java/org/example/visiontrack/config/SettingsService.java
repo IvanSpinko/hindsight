@@ -22,10 +22,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Per-user settings in {@code %LOCALAPPDATA%\VisionTrack\settings.json}, edited by hand until the Settings tab
- * exists. The file holds secrets (the Notion token): it is read on each use, never logged and never committed.
- * A missing file means nothing is configured; a broken one is reported by its line and column only, so no part
- * of it ends up in the log.
+ * Per-user settings in {@code %LOCALAPPDATA%\VisionTrack\settings.json}. It holds the Notion token,
+ * so it is read on each use and never logged; parse errors report only the position.
  */
 @Component
 public class SettingsService {
@@ -35,11 +33,7 @@ public class SettingsService {
     private static final Pattern NOTION_ID = Pattern.compile(
             "([0-9a-fA-F]{8})-?([0-9a-fA-F]{4})-?([0-9a-fA-F]{4})-?([0-9a-fA-F]{4})-?([0-9a-fA-F]{12})(?![0-9a-fA-F])");
 
-    /**
-     * The Notion export: {@code token} of an internal integration, {@code parentPageId} a page shared with it where
-     * the app creates the database, {@code databaseId}/{@code dataSourceId} that database (written by the app),
-     * {@code autoExport} sends the notes after every processed meeting.
-     */
+    /** Notion export settings; {@code databaseId} and {@code dataSourceId} are filled in by the app. */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record NotionSettings(String token, String parentPageId, String databaseId, String dataSourceId,
                                  boolean autoExport) {

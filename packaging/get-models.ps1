@@ -1,7 +1,5 @@
-# Downloads what meeting processing runs on the GPU: whisper.cpp (speech recognition) into tools\whisper,
-# llama.cpp (notes) into tools\llama, and their models into models\whisper, models\parakeet-tdt-0.6b-v3 and models\llm; builds the system
-# sound helper into tools\audio-loopback.
-# All four folders are ignored by git (about 1.1 + 1.2 GB of programs, 1.1 + 2.5 + 7 GB of models).
+# Downloads the programs and models meeting processing runs on the GPU (~13 GB, ignored by git):
+# whisper.cpp, Parakeet and llama.cpp with their models; builds the system sound helper.
 # Usage (from the project root):  powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1
 param(
     # whisper.cpp and llama.cpp release builds that have the Windows CUDA binaries attached
@@ -48,8 +46,7 @@ if ($Force -or -not (Test-Path "tools\whisper\whisper-server.exe")) {
 Get-Model "models\whisper" "ggml-large-v3-turbo-q8_0.bin" "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin"
 Get-Model "models\whisper" "ggml-silero-v5.1.2.bin" "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin"
 
-# NVIDIA Parakeet TDT 0.6B v3 (CC-BY-4.0), the default speech recognition: ONNX export for ONNX Runtime on CUDA, ~2.5 GB.
-# It runs in the app itself; the Whisper VAD tool above still finds the speech for it.
+# NVIDIA Parakeet TDT 0.6B v3 (CC-BY-4.0), the main speech recognition: ONNX export, ~2.5 GB
 $parakeet = "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main"
 foreach ($file in "config.json", "vocab.txt", "nemo128.onnx", "decoder_joint-model.onnx", "encoder-model.onnx", "encoder-model.onnx.data") {
     Get-Model "models\parakeet-tdt-0.6b-v3" $file "$parakeet/$file"
@@ -62,7 +59,7 @@ if ($Force -or -not (Test-Path "tools\llama\llama-server.exe")) {
         "tools\llama" @("llama-server.exe", "llama-server-impl.dll", "llama-common.dll", "llama.dll", "mtmd.dll",
                         "ggml*.dll", "libomp.dll", "cudart64_12.dll", "cublas64_12.dll", "cublasLt64_12.dll") ""
 }
-# Gemma 4 12B, quantisation-aware 4-bit (Apache 2.0): ~7 GB, writes Russian and English notes well on a 12 GB GPU
+# Gemma 4 12B, 4-bit (Apache 2.0): ~7 GB, fits a 12 GB GPU
 Get-Model "models\llm" "gemma-4-12b-it-qat-q4_0.gguf" "https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/main/gemma-4-12b-it-qat-q4_0.gguf"
 
 # System sound capture (the other participants of a call): built locally, nothing to download

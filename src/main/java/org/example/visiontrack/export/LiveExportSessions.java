@@ -17,9 +17,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
 
 /**
- * Live camera sessions as export runs. The page names its session (a UUID it creates when the camera starts);
- * every {@code live-batch-seconds} the current part file is closed and handed to the outbox, and a session
- * ends when the page stops the camera or sends no frames for {@code live-idle-timeout-seconds}.
+ * Live camera sessions as export runs: a part is closed every {@code live-batch-seconds},
+ * and a session ends when the camera stops or sends nothing for a while.
  */
 @Component
 public class LiveExportSessions {

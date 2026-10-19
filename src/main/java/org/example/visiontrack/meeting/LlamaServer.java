@@ -22,10 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * A llama.cpp {@code llama-server} process on 127.0.0.1 with the notes model fully on the GPU. It is started for
- * one meeting and stopped afterwards, which frees its VRAM for speech recognition and object detection.
- */
+/** A llama-server process on 127.0.0.1, started for one meeting and stopped to free VRAM. */
 final class LlamaServer implements LocalNotesGenerator.Model, AutoCloseable {
 
     /** Loading a 7-9 GB model, plus a one-off CUDA kernel compilation on a new GPU. */
@@ -45,10 +42,7 @@ final class LlamaServer implements LocalNotesGenerator.Model, AutoCloseable {
         this.json = json;
     }
 
-    /**
-     * One slot with the whole context, all layers on the GPU, flash attention, no "thinking" (the answer is a JSON
-     * object constrained by a grammar, there is nothing to think aloud into).
-     */
+    /** One slot, all layers on the GPU, flash attention, no thinking (the answer is grammar-constrained JSON). */
     static LlamaServer start(Path executable, Path model, int contextTokens, Path log, ObjectMapper json)
             throws IOException, InterruptedException {
         int port;

@@ -26,10 +26,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Processes recorded meetings in the background, one at a time: recognises the speech, then has a local model
- * write the notes, which go to Notion afterwards when the user turned that on. The screen recording is only kept for people to watch.
- * Progress is saved in {@code meeting.json}, and meetings interrupted by a restart are processed again on the next
- * start.
+ * Processes meetings in the background, one at a time: speech, notes, then the optional Notion export.
+ * Progress is saved in {@code meeting.json}; unfinished meetings resume on the next start.
  */
 @Service
 public class MeetingJobService {
@@ -123,10 +121,7 @@ public class MeetingJobService {
         }
     }
 
-    /**
-     * Recognises the audio tracks (the microphone and the system sound) and removes echoes of the other
-     * participants from the microphone track; returns null (with a warning) when speech recognition is not installed.
-     */
+    /** Transcribes the speech tracks and removes echoes; null (with a warning) when recognition is not installed. */
     private Meeting.Transcription transcribe(Meeting meeting, Path folder) throws IOException {
         List<Transcriber.Track> tracks = meeting.tracks().stream()
                 .filter(t -> SPEECH_TRACKS.contains(t.kind()))
@@ -158,7 +153,7 @@ public class MeetingJobService {
                 ? new WhisperCppTranscriber(whisper, json, folder.resolve("logs")) : null;
         if (speechEngine == VisionTrackProperties.SpeechEngine.PARAKEET) {
             if (ParakeetTranscriber.isInstalled(parakeet.directory(), whisper)) {
-                // Whisper, when installed, takes over the pieces in Russian, where Parakeet is weak
+                // Whisper, when installed, is the backup for pieces written in Cyrillic
                 return new ParakeetTranscriber(parakeet.directory(), whisper,
                         () -> OnnxYoloDetector.preloadNativeLibraries(gpuLibraries.nativeDir(), gpuLibraries.nativePreload()),
                         whisperCpp);
@@ -168,10 +163,7 @@ public class MeetingJobService {
         return whisperCpp;
     }
 
-    /**
-     * Has the local model write notes.json and notes.md from the transcript. Without the model, or when it fails,
-     * the step is skipped with a warning and the transcript is kept (spec 5.4); without CUDA the meeting fails.
-     */
+    /** Writes notes.json and notes.md. Without the model, or when it fails, notes are skipped with a warning. */
     private Meeting.NotesInfo writeNotes(Meeting meeting, Path folder) throws IOException {
         store.find(meeting.id()).ifPresent(m -> store.save(m.withoutWarnings(NOTES_WARNING)));
         Files.deleteIfExists(folder.resolve(NOTES_JSON));
@@ -220,11 +212,7 @@ public class MeetingJobService {
         }
     }
 
-    /**
-     * The notes model needs about its file size in video memory plus the context and work buffers (measured: the
-     * 7.0 GB Gemma file took 7.7 GB). Other programs may hold the rest of the GPU (a game, a video editor, the
-     * call itself), so the free memory is checked first and the user is told what to do instead of a failed start.
-     */
+    /** Checks free VRAM first (model size plus context), so the user gets a clear message instead of a failed start. */
     static String notesMemoryProblem(LlamaServer.CudaDevice gpu, long modelBytes) {
         long neededMiB = modelBytes / (1024 * 1024) + NOTES_EXTRA_MIB;
         if (gpu.freeMiB() >= neededMiB) return null;

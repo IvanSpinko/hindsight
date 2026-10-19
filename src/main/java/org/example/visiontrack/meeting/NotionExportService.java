@@ -32,11 +32,8 @@ import java.util.concurrent.Executors;
 import java.util.function.Function;
 
 /**
- * Sends a processed meeting's notes to Notion as a page in the "Meetings" database, in the background, one meeting
- * at a time. The database is created on the first send inside the page named in the settings. Sending again
- * replaces the page: the new one is written first, then the old one goes to Notion's trash (restorable there), so
- * a failed attempt never loses the page that exists. A half-written new page is trashed too. Nothing here blocks
- * or fails the processing of a meeting.
+ * Sends meeting notes to Notion as a page in a "Meetings" database, in the background.
+ * Sending again writes the new page first, then moves the old one to Notion's trash.
  */
 @Service
 public class NotionExportService {
@@ -77,11 +74,10 @@ public class NotionExportService {
     }
 
     /**
-     * Starts sending a meeting's notes; returns the meeting as it is now (EXPORTING).
+     * Starts sending a meeting's notes; returns the meeting in state EXPORTING.
      *
      * @throws NoSuchElementException if there is no such meeting
-     * @throws IllegalStateException  with a message for the user when it cannot be sent (not processed, no notes,
-     *                                Notion not set up)
+     * @throws IllegalStateException  if it cannot be sent (no notes, Notion not set up)
      */
     public Meeting submit(String id) {
         Meeting meeting = store.find(id).orElseThrow(() -> new NoSuchElementException("Meeting not found"));
@@ -182,10 +178,7 @@ public class NotionExportService {
         return id;
     }
 
-    /**
-     * Appends the body in as few requests as the limits allow. A block with many children (the transcript) is sent
-     * with the first part of them; the rest is appended to that block, which closes the batch so its id is known.
-     */
+    /** Appends the body in as few requests as Notion's limits allow. */
     private void appendBody(NotionClient client, NotionPageBuilder builder, String pageId, List<NotionPageBuilder.Block> blocks)
             throws IOException {
         int i = 0;

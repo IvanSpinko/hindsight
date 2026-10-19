@@ -14,11 +14,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Speech recognition with NVIDIA Parakeet TDT 0.6B v3 (25 European languages, English the strongest) in ONNX
- * Runtime on CUDA, in this process. Silero VAD finds the speech as for Whisper and the same pieces of up to 30 s
- * are recognised; the model writes punctuation itself, and the pieces are cut into sentences with their times.
- * Parakeet is weak on Russian (it writes much of it as Ukrainian), so those pieces go to Whisper when it is installed.
- * The model is loaded for one meeting and freed afterwards, so the notes model gets the video memory.
+ * Speech recognition with NVIDIA Parakeet on CUDA, the most accurate model on English.
+ * Pieces it writes in Cyrillic are recognised again by Whisper, the backup.
  */
 public final class ParakeetTranscriber implements Transcriber {
 
@@ -37,10 +34,9 @@ public final class ParakeetTranscriber implements Transcriber {
     private final WhisperCppTranscriber cyrillicFallback;
 
     /**
-     * @param vad              where the voice activity detection tool lives and which languages to label segments with
-     * @param loadNatives      makes the CUDA libraries loadable before ONNX Runtime needs them
-     * @param cyrillicFallback recognises the pieces Parakeet heard in Cyrillic again (it mixes Russian up with
-     *                         Ukrainian); null keeps Parakeet's text
+     * @param vad              the voice activity detection tool and the languages to label segments with
+     * @param loadNatives      loads the CUDA libraries before ONNX Runtime needs them
+     * @param cyrillicFallback Whisper for pieces written in Cyrillic; null keeps Parakeet's text
      */
     public ParakeetTranscriber(Path modelDirectory, VisionTrackProperties.Whisper vad, Runnable loadNatives,
                                WhisperCppTranscriber cyrillicFallback) {
@@ -55,10 +51,7 @@ public final class ParakeetTranscriber implements Transcriber {
         return ParakeetModel.isInstalled(modelDirectory) && WhisperCppTranscriber.isVadInstalled(vad);
     }
 
-    /**
-     * Recognises every piece with Parakeet; pieces it wrote mostly in Cyrillic are then recognised again with
-     * Whisper, after Parakeet is freed, so the two models never hold the video memory at the same time.
-     */
+    /** Parakeet first; the Cyrillic pieces then go to Whisper once Parakeet is freed (they never share VRAM). */
     @Override
     public Result transcribe(List<Track> tracks, ProgressListener progress) throws IOException {
         // With a fallback the first pass is shown as the first part of the progress bar
@@ -110,11 +103,7 @@ public final class ParakeetTranscriber implements Transcriber {
         return text.codePoints().filter(c -> Character.UnicodeScript.of(c) == Character.UnicodeScript.CYRILLIC).count();
     }
 
-    /**
-     * Joins the recognised tokens into segments of one sentence each (the model writes the punctuation), also cut
-     * where the speaker paused for {@link #SEGMENT_PAUSE}. A sentence ends only when a new word follows its full
-     * stop ("version 1.2" stays whole). A segment ends one frame after its last token.
-     */
+    /** Joins tokens into one segment per sentence, also cut at pauses of {@link #SEGMENT_PAUSE}. */
     static List<TranscriptSegment> segments(List<Timed> pieces, String source, List<String> languages) {
         List<TranscriptSegment> result = new ArrayList<>();
         StringBuilder text = new StringBuilder();
@@ -149,11 +138,7 @@ public final class ParakeetTranscriber implements Transcriber {
         return !t.isEmpty() && ".?!\u2026".indexOf(t.charAt(t.length() - 1)) >= 0;
     }
 
-    /**
-     * Parakeet does not say which language it heard, so the segment gets one of the allowed languages by its
-     * letters: Cyrillic text the first Cyrillic one (Russian by default), other text the first other one
-     * (English by default).
-     */
+    /** Picks an allowed language by the text's script, since Parakeet does not report one. */
     static String language(String text, List<String> allowed) {
         long cyrillic = cyrillicLetters(text);
         long letters = text.codePoints().filter(Character::isLetter).count();

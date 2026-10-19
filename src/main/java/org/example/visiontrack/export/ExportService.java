@@ -44,10 +44,7 @@ public class ExportService {
         return new ExportedRun(RunInfo.start(videoId, source), model(), sink);
     }
 
-    /**
-     * Name and classes come from the loaded detector (it is about to be used by the run anyway). If it cannot be
-     * loaded, the run fails right after; its summary then names the model file without classes.
-     */
+    /** Model name and classes come from the loaded detector; if it cannot load, only the file name is known. */
     private ModelInfo model() {
         ModelInfo current = model;
         if (current != null) return current;

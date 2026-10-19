@@ -6,10 +6,7 @@ import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-/**
- * A 16-bit PCM mono WAV file held in memory (an hour at 16 kHz is about 115 MB), from which pieces are
- * cut as standalone WAV files for Whisper without running ffmpeg for each one.
- */
+/** A 16-bit mono WAV file in memory, cut into pieces for speech recognition. */
 final class PcmWav {
 
     private final int sampleRate;

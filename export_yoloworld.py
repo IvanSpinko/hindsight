@@ -2,10 +2,7 @@ from ultralytics import YOLOWorld
 from pathlib import Path
 import shutil
 
-# ----------------------------------------------------------------------
-# Define ANY objects you want the model to detect!
-# Add or remove any words in plain English here.
-# ----------------------------------------------------------------------
+# Objects the model detects: any words in plain English
 classes = [
     # People & Vehicles
     'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',
@@ -49,5 +46,5 @@ with open(dest_classes, "w", encoding="utf-8") as f:
     for c in classes:
         f.write(c + "\n")
 
-print(f"✓ Saved model: {dest_model.resolve()}")
-print(f"✓ Saved {len(classes)} classes to: {dest_classes.resolve()}")
+print(f"Saved model: {dest_model.resolve()}")
+print(f"Saved {len(classes)} classes to: {dest_classes.resolve()}")

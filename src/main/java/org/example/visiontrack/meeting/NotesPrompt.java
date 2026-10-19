@@ -69,10 +69,7 @@ final class NotesPrompt {
                 + "Write the notes in " + mainLanguage(input.segments()) + ".\n";
     }
 
-    /**
-     * The language most of the speech was in, by amount of text, as an English name ("Russian"). Models tend to
-     * fall back to English when asked to pick the language themselves, so the request names it.
-     */
+    /** The main language of the speech; the request names it, since models drift to English otherwise. */
     static String mainLanguage(List<TranscriptSegment> segments) {
         Map<String, Integer> letters = new HashMap<>();
         for (TranscriptSegment s : segments) {

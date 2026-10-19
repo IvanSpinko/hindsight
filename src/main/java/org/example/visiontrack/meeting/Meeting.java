@@ -7,14 +7,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A recorded meeting, stored as {@code meeting.json} in the meeting's folder.
- * Track offsets put all tracks on one timeline: media time 0 of a track is {@code startOffsetMillis}
- * after {@link #startedAt}. {@code capturePids} are the ffmpeg processes of a running recording, kept so
- * they can be stopped if the app crashes (on Windows child processes outlive their parent).
- *
- * <p>Lifecycle: RECORDING → RECORDED (files joined) → PROCESSING (speech, notes) → READY.
- * FAILED keeps whatever was recorded; processing can be started again. Fields of older versions
- * (e.g. the slide count of the removed slide detector) are ignored when reading.
+ * A meeting, stored as {@code meeting.json} in its folder. Track offsets put all tracks on one timeline;
+ * {@code capturePids} let a recording be stopped after a crash.
+ * <p>
+ * RECORDING → RECORDED → PROCESSING → READY; a FAILED meeting can be processed again.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record Meeting(
@@ -48,10 +44,7 @@ public record Meeting(
 
     public record Track(String kind, String file, long startOffsetMillis, double durationSeconds) {}
 
-    /**
-     * The notes sent to Notion: the page that holds them now ({@code pageId}, {@code url}, kept when a later attempt
-     * fails, so it can still be replaced), when it was written, and the last error. Null: never sent.
-     */
+    /** The Notion page that holds the notes (kept when a later attempt fails), when it was sent, and the last error. */
     public record NotionExport(NotionState state, String pageId, String url, Instant exportedAt, String error) {}
 
     public enum NotionState { EXPORTING, EXPORTED, FAILED }

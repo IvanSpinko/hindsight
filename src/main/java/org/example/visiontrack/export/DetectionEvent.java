@@ -8,10 +8,7 @@ import org.example.visiontrack.detection.Detection.BoundingBox;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * One detected object on one analysed frame: a line of {@code part-NNNN.jsonl.gz}.
- * The box is normalised to 0..1 of the analysed frame, so it does not depend on the frame size.
- */
+/** One detected object on one frame (a line of {@code part-NNNN.jsonl.gz}); the box is normalised to 0..1. */
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public record DetectionEvent(
         int schemaVersion,

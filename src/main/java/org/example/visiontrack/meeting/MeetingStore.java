@@ -24,11 +24,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
-/**
- * Meetings live in folders under {@code Documents\VisionTrack\Meetings}, one per meeting
- * ({@code YYYY-MM-DD_HH-MM_<title>}); its {@code meeting.json} is the only record, so the list
- * survives restarts and the user can move or delete folders freely.
- */
+/** One folder per meeting ({@code YYYY-MM-DD_HH-MM_<title>}); its {@code meeting.json} is the only record. */
 @Component
 public class MeetingStore {
 
@@ -121,10 +117,7 @@ public class MeetingStore {
         return meetings;
     }
 
-    /**
-     * Deletes the meeting folder with everything in it. {@code meeting.json} goes last, so a file that cannot be
-     * deleted (e.g. open in a player) leaves the meeting in the list instead of a folder that is half gone.
-     */
+    /** Deletes the meeting folder; {@code meeting.json} goes last, so a locked file leaves the meeting listed. */
     public void delete(String id) throws IOException {
         Path folder = folder(id).orElseThrow(() -> new NoSuchFileException("Meeting " + id));
         if (!folder.toAbsolutePath().normalize().getParent().equals(root)) {

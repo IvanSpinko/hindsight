@@ -8,11 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-/**
- * What the computer plays, i.e. the other participants of a call: {@code audio-loopback.exe} (WASAPI loopback,
- * see {@code native/audio-loopback}) writes float PCM to a pipe, and ffmpeg stores it like the microphone track,
- * as 16 kHz mono parts.
- */
+/** Records what the computer plays (the other participants): {@code audio-loopback.exe} piped into ffmpeg. */
 final class SystemAudioCapture {
 
     /** The default output device and the format it plays in. */

@@ -8,10 +8,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Monitors and microphones available for recording, and the output device whose sound (the other participants)
- * is recorded; {@code systemAudio} is null when it cannot be captured.
- */
+/** Monitors, microphones and the output device to record; {@code systemAudio} is null when it cannot be captured. */
 public record CaptureDevices(List<Monitor> monitors, List<String> microphones, String systemAudio) {
 
     private static final Logger log = LoggerFactory.getLogger(CaptureDevices.class);

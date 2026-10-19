@@ -12,11 +12,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * One long-running ffmpeg capture (screen, microphone or system sound) writing numbered segments into a folder.
- * The system sound comes from a {@code source} process piped into ffmpeg's stdin. Messages go to {@code logFile}
- * so no pipe fills up and errors can be shown later.
- */
+/** One ffmpeg capture (screen, microphone or system sound) writing numbered segments; output goes to {@code logFile}. */
 final class CaptureProcess {
 
     private final String name;
@@ -86,18 +82,12 @@ final class CaptureProcess {
         return startedAtNanos;
     }
 
-    /**
-     * Waits up to {@code timeout} and reports whether the capture is still running, i.e. the device opened.
-     * Devices that fail (busy, missing, unsupported) make ffmpeg exit within a second or two.
-     */
+    /** Whether the capture still runs after {@code timeout}; ffmpeg exits within seconds when a device fails. */
     boolean survives(Duration timeout) throws InterruptedException {
         return !process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS);
     }
 
-    /**
-     * Asks ffmpeg to finish so the last segment is closed properly, then kills it if needed: 'q' on stdin, or for
-     * a piped capture the end of its input, by stopping the source.
-     */
+    /** Stops ffmpeg gracefully so the last segment is complete, then kills it if needed. */
     void stop(Duration timeout) {
         stopping = true;
         if (source != null) source.destroy();

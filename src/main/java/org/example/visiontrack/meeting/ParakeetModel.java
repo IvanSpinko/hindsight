@@ -21,10 +21,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * NVIDIA Parakeet TDT 0.6B v3 in ONNX Runtime on CUDA (the export of istupakov/parakeet-tdt-0.6b-v3-onnx):
- * {@code nemo128.onnx} turns 16 kHz audio into 128 mel features every 10 ms, the encoder reduces them 8 times
- * (one frame per 80 ms), and the decoder-joint network picks a token and how many frames to skip
- * (token-and-duration transducer, greedy decoding as in NeMo).
+ * NVIDIA Parakeet TDT 0.6B v3 in ONNX Runtime on CUDA: mel features, the encoder (one frame per 80 ms),
+ * then greedy token-and-duration decoding.
  */
 final class ParakeetModel implements AutoCloseable {
 
@@ -158,11 +156,7 @@ final class ParakeetModel implements AutoCloseable {
         }
     }
 
-    /**
-     * Greedy token-and-duration decoding (NeMo, onnx-asr): on each frame the network names a token and a jump;
-     * a real token updates the decoder state, a jump of zero stays on the frame, up to
-     * {@link #MAX_TOKENS_PER_FRAME} tokens.
-     */
+    /** Greedy TDT decoding: each step picks a token and how many frames to skip. */
     static <S> List<Emission> greedy(int frames, int blank, S initial, Joint<S> joint) throws OrtException {
         List<Emission> emitted = new ArrayList<>();
         S state = initial;

@@ -10,8 +10,8 @@ import java.util.List;
 public interface Transcriber {
 
     /**
-     * One audio track: {@code offsetSeconds} is where it starts on the meeting timeline, {@code source} is
-     * {@code mic} (the user) or {@code system} (the other participants).
+     * One audio track: where it starts on the meeting timeline and whose voice it holds
+     * ({@code mic}, {@code system} or {@code mixed}).
      */
     record Track(Path wav, double offsetSeconds, String source) {}
 

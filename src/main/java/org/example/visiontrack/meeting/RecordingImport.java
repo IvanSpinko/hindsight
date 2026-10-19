@@ -12,12 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-/**
- * Turns an uploaded recording (a Zoom or OBS file, a voice memo) into the tracks of a meeting: the sound for speech
- * recognition ({@code audio/mixed.wav}, all voices on one track) and a copy to watch or listen to. A video becomes
- * {@code recording.mp4} (H.264 is copied, anything else is re-encoded by NVENC so the browser can play it); an
- * audio file is kept as it is.
- */
+/** Turns an uploaded file into meeting tracks: {@code audio/mixed.wav} for recognition and a copy to play. */
 final class RecordingImport {
 
     /** Track kind of the uploaded file until it has been prepared. */
@@ -73,10 +68,7 @@ final class RecordingImport {
         return new Streams(video, audio);
     }
 
-    /**
-     * Prepares the uploaded file and reports how far it got; returns the meeting's new tracks. The upload is removed
-     * once it has been converted.
-     */
+    /** Prepares the upload, reporting progress, and returns the meeting's new tracks. */
     static List<Meeting.Track> prepare(Ffmpeg ffmpeg, Path folder, Meeting.Track upload, ProgressListener progress) throws IOException {
         Path source = folder.resolve(upload.file());
         Streams streams = streams(ffmpeg, source);
@@ -115,13 +107,7 @@ final class RecordingImport {
         return args;
     }
 
-    /**
-     * H.264 video is copied; other codecs (VP9, HEVC, MPEG-4...) are re-encoded on the GPU. NVENC is the slow part
-     * (decoding on the GPU did not help: a 1080p60 HEVC screen recording decodes faster on the CPU), so it uses its
-     * fastest preset: twice as fast at the same size and quality level. Faster video is capped at 30 fps, which is
-     * enough to follow a meeting and halves the frames to encode; slower video keeps its own rate. The sound becomes
-     * one AAC track.
-     */
+    /** H.264 is copied; other codecs are re-encoded with NVENC (fastest preset, at most 30 fps). */
     static List<String> videoArgs(Path source, String videoCodec, int audioTracks, Path output) {
         List<String> args = new ArrayList<>(List.of("-hide_banner", "-loglevel", "error", "-y", "-i", source.toString(), "-map", "0:v:0"));
         args.addAll(audioMap(audioTracks));
@@ -135,11 +121,7 @@ final class RecordingImport {
         return args;
     }
 
-    /**
-     * The only audio track, or all of them mixed into one: OBS and some call recorders put each source (microphone,
-     * desktop sound) on its own track. amix scales the tracks down so that tracks repeating the same voices (OBS
-     * track 1 is often the full mix) do not clip.
-     */
+    /** One audio track, or all of them mixed (OBS keeps each source on its own track). */
     static List<String> audioMap(int audioTracks) {
         if (audioTracks <= 1) return List.of("-map", "0:a:0");
         StringBuilder mix = new StringBuilder();

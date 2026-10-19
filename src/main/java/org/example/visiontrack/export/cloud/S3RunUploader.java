@@ -7,10 +7,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.nio.file.Path;
 
-/**
- * Conditional PUT ({@code If-None-Match: *}): S3 refuses to overwrite an existing key with 412, which here
- * means "uploaded before" (the outbox file was sent but not yet moved when the app stopped).
- */
+/** PUT with {@code If-None-Match: *}: a 412 means the file was uploaded before. */
 public class S3RunUploader implements RunUploader {
 
     private final S3Client s3;

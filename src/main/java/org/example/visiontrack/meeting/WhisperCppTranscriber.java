@@ -18,14 +18,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Speech recognition with whisper.cpp (option A of the spec): Silero VAD finds the speech, which is cut
- * at pauses into pieces of up to 30 s; a {@code whisper-server} process transcribes each piece with its own
- * language detection, limited to the allowed languages (Russian and English by default).
- *
- * <p>Everything runs on CUDA. Without it (no NVIDIA GPU, old driver) recognition fails with a
- * {@link GpuRequiredException}; there is no CPU fallback.
- */
+/** Speech recognition with whisper.cpp on CUDA: Silero VAD finds the speech, each piece gets its own language. */
 public final class WhisperCppTranscriber implements Transcriber {
 
     private static final Logger log = LoggerFactory.getLogger(WhisperCppTranscriber.class);
@@ -101,10 +94,7 @@ public final class WhisperCppTranscriber implements Transcriber {
         return new Result(segments, loaded.model(), loaded.backend(), List.copyOf(languages));
     }
 
-    /**
-     * Turns Whisper's pieces into segments on the meeting timeline. Whisper sometimes splits inside a word
-     * (a piece that does not start with a space continues the previous one), so those are joined back.
-     */
+    /** Turns Whisper's output into timeline segments, joining words split across pieces. */
     static List<TranscriptSegment> toSegments(WhisperServer.Inference inference, double offset, String source, String language) {
         List<TranscriptSegment> result = new ArrayList<>();
         for (WhisperServer.Piece piece : inference.pieces()) {
@@ -120,10 +110,7 @@ public final class WhisperCppTranscriber implements Transcriber {
         return result;
     }
 
-    /**
-     * Whisper labels noise instead of transcribing it: "*music playing*", "[Music]", "(applause)", music notes.
-     * Such a piece is not speech and would only mislead the notes.
-     */
+    /** Whisper's noise labels ("[Music]", "(applause)") are not speech. */
     static boolean isSoundLabel(String text) {
         String t = text.strip();
         return t.matches("[*\\[(].*[*\\])]") || t.chars().allMatch(c -> c == '♪' || c == '♫' || Character.isWhitespace(c));
@@ -136,8 +123,7 @@ public final class WhisperCppTranscriber implements Transcriber {
     /** Silero VAD (whisper.cpp tool): where the speech is in a 16 kHz WAV file; also used for Parakeet. */
     static List<SpeechChunks.Span> detectSpeech(VisionTrackProperties.Whisper settings, Path wav) throws IOException {
         List<String> command = List.of(executable(settings, "whisper-vad-speech-segments").toString(),
-                // No -ug: in whisper.cpp b5454 Silero VAD aborts on CUDA ("pre-allocated tensor in a buffer (CUDA0)
-                // that cannot run the operation"), so this small model stays on the CPU (seconds per hour of audio)
+                // No -ug: Silero VAD crashes on CUDA in this whisper.cpp build; on the CPU it takes seconds.
                 "-vm", settings.vadModel().toString(), "-f", wav.toString(), "-np", "-t", "4",
                 // pauses of 0.3 s separate segments; pieces are then grouped by SpeechChunks
                 "-vsd", "300", "-vp", "100");

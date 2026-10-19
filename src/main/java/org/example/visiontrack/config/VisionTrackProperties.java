@@ -64,10 +64,8 @@ public record VisionTrackProperties(
     ) {}
 
     /**
-     * Meeting recording. {@code ffmpegDir} overrides the ffmpeg bundled with JavaCV (a folder with
-     * ffmpeg.exe and ffprobe.exe); {@code maxRecordingMinutes} also stops captures orphaned by a crash.
-     * The screen is recorded for people to watch later; only the speech is analysed. {@code systemAudioHelper}
-     * is audio-loopback.exe, which captures what the computer plays (the other participants).
+     * Meeting recording and processing. {@code ffmpegDir} overrides the bundled ffmpeg;
+     * {@code systemAudioHelper} records what the computer plays (the other participants).
      */
     public record Meetings(
             @NotNull Path directory,
@@ -85,19 +83,10 @@ public record VisionTrackProperties(
     /** Which model turns meeting speech into text; Whisper is also the fallback when Parakeet is not installed. */
     public enum SpeechEngine { PARAKEET, WHISPER }
 
-    /**
-     * NVIDIA Parakeet TDT 0.6B v3 in ONNX Runtime on CUDA: {@code directory} holds the ONNX export (nemo128.onnx,
-     * encoder-model.onnx with its .data file, decoder_joint-model.onnx, vocab.txt). Speech is found with the
-     * Whisper section's voice activity detection, and its {@code languages} label the segments.
-     */
+    /** Folder with the NVIDIA Parakeet ONNX export (nemo128, encoder, decoder_joint, vocab). */
     public record Parakeet(@NotNull Path directory) {}
 
-    /**
-     * Meeting notes written by a local model with llama.cpp on CUDA: {@code directory} holds llama-server.exe and
-     * its DLLs, {@code model} is a GGUF file. Meetings longer than {@code chunkMinutes} are summarised in parts of
-     * that length first, then merged. {@code contextTokens} is the model's context window (prompt and answer),
-     * {@code maxTokens} the longest answer.
-     */
+    /** Notes model on llama.cpp (CUDA). Meetings longer than {@code chunkMinutes} are summarised in parts. */
     public record Notes(
             @NotNull Path directory,
             @NotNull Path model,
@@ -106,10 +95,7 @@ public record VisionTrackProperties(
             @Min(256) int maxTokens
     ) {}
 
-    /**
-     * Speech recognition with whisper.cpp on CUDA (no CPU fallback): {@code directory} holds whisper-server.exe
-     * and its DLLs. {@code languages} are the ISO codes speech may be in; the first one is the fallback.
-     */
+    /** whisper.cpp on CUDA; {@code languages} are the allowed ISO codes, the first is the fallback. */
     public record Whisper(
             @NotNull Path directory,
             @NotNull Path model,

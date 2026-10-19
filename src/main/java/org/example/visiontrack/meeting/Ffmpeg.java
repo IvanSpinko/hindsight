@@ -18,11 +18,7 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * The ffmpeg/ffprobe executables bundled with JavaCV (extracted to ~/.javacpp/cache on first use),
- * so capture works without installing FFmpeg. Recording runs in a separate ffmpeg process: if the
- * app crashes, the segments written so far stay playable.
- */
+/** The ffmpeg and ffprobe bundled with JavaCV. Capture runs in separate processes, so a crash keeps what was written. */
 public final class Ffmpeg {
 
     private static final Pattern DSHOW_DEVICE = Pattern.compile("\\[dshow @ [^]]+] \"(.+)\" \\((audio|video|none)\\)");
@@ -61,10 +57,7 @@ public final class Ffmpeg {
         return execute(ffmpeg, args, timeout, null);
     }
 
-    /**
-     * Runs ffmpeg like {@link #run} and reports how much of {@code durationSeconds} of input it has written, read
-     * from ffmpeg's {@code -progress} output (those lines are left out of the result).
-     */
+    /** Like {@link #run}, reporting progress from ffmpeg's {@code -progress} output. */
     public Result run(List<String> args, Duration timeout, double durationSeconds, ProgressListener progress) throws IOException {
         List<String> withProgress = new ArrayList<>(List.of("-progress", "pipe:1", "-nostats"));
         withProgress.addAll(args);
@@ -116,10 +109,7 @@ public final class Ffmpeg {
     /** An audio track for {@link #mux}: {@code offsetSeconds} delays (or, if negative, advances) it against the video. */
     public record AudioInput(Path file, double offsetSeconds) {}
 
-    /**
-     * Puts a video and its audio tracks (microphone, system sound) into one MP4 for playback: the video is copied,
-     * the audio tracks are mixed into one AAC track.
-     */
+    /** One MP4 for playback: the video is copied, the audio tracks are mixed into one AAC track. */
     public void mux(Path video, List<AudioInput> audio, Path output) throws IOException {
         Result result = run(muxArgs(video, audio, output), Duration.ofMinutes(30));
         if (result.exitCode() != 0 || !Files.isRegularFile(output)) {
