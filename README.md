@@ -83,7 +83,7 @@ Completed result (shortened):
 | GET    | `/api/meetings/notion`            | whether the Notion export is set up (never the token)     |
 | POST   | `/api/meetings/{id}/notion`       | sends the notes to Notion in the background; a page sent before is replaced |
 
-Recordings go to `Documents\VisionTrack\Meetings\<date>_<time>_<title>\`.
+Recordings go to `Documents\VisionTrack\Meetings\<date>_<time>_<title>\` (another folder can be chosen in Settings).
 
 * **Recording** – the screen (ffmpeg `ddagrab`, falling back to `gdigrab`, 30 fps, NVENC), the microphone and
   the system sound (WASAPI loopback helper) are captured in separate ffmpeg processes, in 5-minute parts, so a
@@ -108,21 +108,13 @@ click. Only these notes leave the computer, and only when you send them.
 1. Create an internal integration at [notion.so/profile/integrations](https://www.notion.so/profile/integrations)
    with the capabilities to read, insert and update content, and copy its token.
 2. In Notion, open the page that should hold the database: `•••` → Connections → add the integration.
-3. Create `%LOCALAPPDATA%\VisionTrack\settings.json` (read on every send, no restart needed):
-
-   ```json
-   {
-     "notion": {
-       "token": "<the integration token>",
-       "parentPageId": "<link of that page>",
-       "autoExport": false
-     }
-   }
-   ```
+3. Paste the token and the link of that page into the **Settings** tab (Notion). They are saved in
+   `%LOCALAPPDATA%\VisionTrack\settings.json`; the token is never shown again or logged.
 
 The first send creates the database in that page and writes its `databaseId` and `dataSourceId` into the file
-(to use a database of your own instead, put its link into `databaseId`; its columns must have the names and types
-above). `autoExport: true` sends every meeting after processing. Sending again writes a new page and moves the old
+(to use a database of your own instead, put its link into `databaseId` in that file; its columns must have the names
+and types above). "Send the notes to Notion when a meeting is processed" in Settings sends every meeting after
+processing. Sending again writes a new page and moves the old
 one to Notion's trash. The file holds a secret: it is in `.gitignore`, and the app never logs it. Notion API version
 `2026-03-11`; requests are spaced to stay under Notion's limit of about three per second and retried on `429`.
 

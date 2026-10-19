@@ -66,7 +66,7 @@ final class NotesPrompt {
         return "Meeting: " + input.title() + "\n"
                 + "Recorded: " + DATE.format(input.startedAt()) + "\n"
                 + "Length: " + TranscriptWriter.clock(input.durationSeconds()) + "\n"
-                + "Write the notes in " + mainLanguage(input.segments()) + ".\n";
+                + "Write the notes in " + (input.language() == null ? mainLanguage(input.segments()) : languageName(input.language())) + ".\n";
     }
 
     /** The main language of the speech; the request names it, since models drift to English otherwise. */
@@ -75,9 +75,13 @@ final class NotesPrompt {
         for (TranscriptSegment s : segments) {
             if (s.language() != null && !s.language().isBlank()) letters.merge(s.language(), s.text().length(), Integer::sum);
         }
-        String code = letters.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse("en");
+        return languageName(letters.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse("en"));
+    }
+
+    /** English name of an ISO language code; English when the code is unknown. */
+    static String languageName(String code) {
         String name = Locale.forLanguageTag(code).getDisplayLanguage(Locale.ENGLISH);
-        return name.isBlank() ? "English" : name;
+        return name.isBlank() || name.equalsIgnoreCase(code) ? "English" : name;
     }
 
     /** One line per speech segment: {@code [00:12:40] Me: text}. */

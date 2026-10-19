@@ -1,5 +1,6 @@
 package org.example.visiontrack.meeting;
 
+import org.example.visiontrack.config.SettingsService;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -35,7 +36,7 @@ class SegmentedCaptureTest {
         List<String> args = new ArrayList<>(CaptureArgs.common(60));
         // The real screen encoder (NVENC), so the test also checks that it starts a part at every forced keyframe
         args.addAll(List.of("-re", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=2"));
-        args.addAll(ScreenCapture.ENCODER);
+        args.addAll(ScreenCapture.encoder(SettingsService.ScreenQuality.STANDARD));
         args.addAll(CaptureArgs.keyframeAtEverySegment(1));
         args.addAll(CaptureArgs.segmentedOutput(dir, "screen", 1));
 

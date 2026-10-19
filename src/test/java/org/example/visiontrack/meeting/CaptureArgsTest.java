@@ -1,5 +1,6 @@
 package org.example.visiontrack.meeting;
 
+import org.example.visiontrack.config.SettingsService.ScreenQuality;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -13,7 +14,7 @@ class CaptureArgsTest {
 
     @Test
     void ddagrabRecordsTheChosenMonitorInSegments() {
-        List<String> args = ScreenCapture.args(ScreenCapture.Method.DDAGRAB, 1, 1.0, DIR, 300, 3600);
+        List<String> args = ScreenCapture.args(ScreenCapture.Method.DDAGRAB, 1, 1.0, ScreenQuality.STANDARD, DIR, 300, 3600);
 
         String filter = args.get(args.indexOf("-filter_complex") + 1);
         // Frames go from the Desktop Duplication API straight to NVENC, without a copy through system memory
@@ -27,12 +28,19 @@ class CaptureArgsTest {
 
     @Test
     void gdigrabFallbackGrabsTheDesktop() {
-        List<String> args = ScreenCapture.args(ScreenCapture.Method.GDIGRAB, 0, 0.5, DIR, 300, 3600);
+        List<String> args = ScreenCapture.args(ScreenCapture.Method.GDIGRAB, 0, 0.5, ScreenQuality.STANDARD, DIR, 300, 3600);
 
         assertThat(args).containsSubsequence("-f", "gdigrab", "-framerate", "0.500", "-draw_mouse", "1")
                 .containsSubsequence("-i", "desktop")
                 .contains("h264_nvenc")
                 .doesNotContain("-filter_complex");
+    }
+
+    @Test
+    void screenQualityTradesFileSizeForSharpness() {
+        assertThat(ScreenCapture.encoder(ScreenQuality.SMALL)).containsSubsequence("-cq", "33", "-b:v", "0", "-maxrate", "4M");
+        assertThat(ScreenCapture.encoder(ScreenQuality.STANDARD)).containsSubsequence("-cq", "28", "-b:v", "0", "-maxrate", "8M");
+        assertThat(ScreenCapture.encoder(ScreenQuality.HIGH)).containsSubsequence("-cq", "23", "-b:v", "0", "-maxrate", "16M");
     }
 
     @Test

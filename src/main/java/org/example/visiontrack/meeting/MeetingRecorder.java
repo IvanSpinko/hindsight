@@ -2,6 +2,7 @@ package org.example.visiontrack.meeting;
 
 import jakarta.annotation.PreDestroy;
 import org.example.visiontrack.GpuRequiredException;
+import org.example.visiontrack.config.SettingsService;
 import org.example.visiontrack.config.VisionTrackProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +65,7 @@ public class MeetingRecorder {
     private final VisionTrackProperties.Meetings settings;
     private final ApplicationEventPublisher events;
     private final MeetingJobService jobs;
+    private final SettingsService preferences;
     private final ScheduledExecutorService watchdog;
 
     private volatile Ffmpeg ffmpeg;
@@ -71,8 +73,9 @@ public class MeetingRecorder {
     private volatile Active active;
 
     public MeetingRecorder(MeetingStore store, VisionTrackProperties properties, ApplicationEventPublisher events,
-                           MeetingJobService jobs) {
+                           MeetingJobService jobs, SettingsService preferences) {
         this.store = store;
+        this.preferences = preferences;
         this.jobs = jobs;
         this.settings = properties.meetings();
         this.events = events;
@@ -115,11 +118,16 @@ public class MeetingRecorder {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A recording is already running");
         }
         CaptureDevices available = devices(false);
-        int monitorIndex = request.monitor() == null ? 0 : request.monitor();
+        SettingsService.MeetingPreferences chosen = preferences.meetings();
+        int monitorIndex = request.monitor() != null ? request.monitor()
+                : chosen.monitor() != null && available.monitors().stream().anyMatch(m -> m.index() == chosen.monitor())
+                ? chosen.monitor() : 0;
         CaptureDevices.Monitor monitor = available.monitors().stream()
                 .filter(m -> m.index() == monitorIndex).findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Monitor not found: " + (monitorIndex + 1)));
-        String microphone = chooseMicrophone(request.microphone(), available.microphones());
+        String requestedMic = StringUtils.hasText(request.microphone()) ? request.microphone()
+                : available.microphones().contains(chosen.microphone()) ? chosen.microphone() : null;
+        String microphone = chooseMicrophone(requestedMic, available.microphones());
 
         String id = UUID.randomUUID().toString();
         String title = StringUtils.hasText(request.title()) ? request.title().strip() : MeetingStore.DEFAULT_TITLE;
@@ -139,7 +147,7 @@ public class MeetingRecorder {
         try {
             // ddagrab is only offered when probing found the monitor (width > 0)
             ScreenCapture.Method method = monitor.width() > 0 ? ScreenCapture.Method.DDAGRAB : ScreenCapture.Method.GDIGRAB;
-            screen = startScreen(method, monitor.index(), folder);
+            screen = startScreen(method, monitor.index(), folder, chosen);
             mic = startMic(microphone, folder);
 
             boolean screenOk = screen.survives(DEVICE_OPEN_TIMEOUT);
@@ -150,7 +158,7 @@ public class MeetingRecorder {
                 log.warn("ddagrab failed ({}), falling back to gdigrab", screen.errorTail());
                 method = ScreenCapture.Method.GDIGRAB;
                 deleteParts(folder.resolve("video"), SCREEN);
-                screen = startScreen(method, monitor.index(), folder);
+                screen = startScreen(method, monitor.index(), folder, chosen);
                 screenOk = screen.survives(DEVICE_OPEN_TIMEOUT);
             }
             if (!screenOk) {
@@ -208,9 +216,10 @@ public class MeetingRecorder {
         return requested;
     }
 
-    private CaptureProcess startScreen(ScreenCapture.Method method, int monitor, Path folder) throws IOException {
-        List<String> args = ScreenCapture.args(method, monitor, settings.screenFps(), folder.resolve("video"),
-                settings.segmentSeconds(), maxSeconds());
+    private CaptureProcess startScreen(ScreenCapture.Method method, int monitor, Path folder,
+                                       SettingsService.MeetingPreferences chosen) throws IOException {
+        List<String> args = ScreenCapture.args(method, monitor, chosen.screenFps(settings.screenFps()),
+                chosen.screenQualityOrDefault(), folder.resolve("video"), settings.segmentSeconds(), maxSeconds());
         return CaptureProcess.start(SCREEN, ffmpeg().executable(), args, folder.resolve("logs/screen.log"));
     }
 

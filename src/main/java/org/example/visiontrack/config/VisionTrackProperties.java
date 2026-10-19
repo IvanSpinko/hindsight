@@ -51,9 +51,11 @@ public record VisionTrackProperties(
             @NotEmpty List<String> allowedExtensions
     ) {}
 
+    /** Video analyses; each one is saved as {@code <id>.json} in {@code directory}. */
     public record Jobs(
             @Min(1) int concurrency,
-            @Min(0) int queueCapacity
+            @Min(0) int queueCapacity,
+            @NotNull Path directory
     ) {}
 
     /** Detections written as JSON Lines for every run (always on); see the export package. */

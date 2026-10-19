@@ -2,6 +2,7 @@ package org.example.visiontrack.meeting;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import org.example.visiontrack.config.SettingsService;
 import org.example.visiontrack.config.VisionTrackProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,9 +23,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-/** One folder per meeting ({@code YYYY-MM-DD_HH-MM_<title>}); its {@code meeting.json} is the only record. */
+/**
+ * One folder per meeting ({@code YYYY-MM-DD_HH-MM_<title>}); its {@code meeting.json} is the only record.
+ */
 @Component
 public class MeetingStore {
 
@@ -35,28 +39,33 @@ public class MeetingStore {
     private static final DateTimeFormatter FOLDER_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm");
     private static final int MAX_TITLE_LENGTH = 60;
 
-    private final Path root;
+    private final Supplier<Path> root;
     private final ObjectMapper json;
     private final Map<String, Path> folders = new ConcurrentHashMap<>();
 
     @Autowired
-    public MeetingStore(VisionTrackProperties properties, ObjectMapper objectMapper) {
-        this(properties.meetings().directory(), objectMapper);
+    public MeetingStore(VisionTrackProperties properties, SettingsService settings, ObjectMapper objectMapper) {
+        this(() -> settings.meetings().directory(properties.meetings().directory()), objectMapper);
     }
 
     MeetingStore(Path root, ObjectMapper objectMapper) {
-        this.root = root.toAbsolutePath().normalize();
+        this(() -> root, objectMapper);
+    }
+
+    private MeetingStore(Supplier<Path> root, ObjectMapper objectMapper) {
+        this.root = () -> root.get().toAbsolutePath().normalize();
         this.json = objectMapper.copy()
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .enable(SerializationFeature.INDENT_OUTPUT);
     }
 
     public Path root() {
-        return root;
+        return root.get();
     }
 
     /** Creates an empty folder for a new meeting; a number is appended if the name is taken. */
     Path createFolder(String id, String title, LocalDateTime startedAt) throws IOException {
+        Path root = root();
         Files.createDirectories(root);
         String base = startedAt.format(FOLDER_TIME) + "_" + folderTitle(title);
         Path folder = root.resolve(base);
@@ -103,6 +112,7 @@ public class MeetingStore {
 
     /** All meetings, newest first. Re-scans the folder, so moved or deleted meetings disappear. */
     public List<Meeting> findAll() {
+        Path root = root();
         if (!Files.isDirectory(root)) return List.of();
         List<Meeting> meetings = new ArrayList<>();
         try (Stream<Path> dirs = Files.list(root)) {
@@ -120,7 +130,8 @@ public class MeetingStore {
     /** Deletes the meeting folder; {@code meeting.json} goes last, so a locked file leaves the meeting listed. */
     public void delete(String id) throws IOException {
         Path folder = folder(id).orElseThrow(() -> new NoSuchFileException("Meeting " + id));
-        if (!folder.toAbsolutePath().normalize().getParent().equals(root)) {
+        // The folder may be under an earlier meetings folder
+        if (read(folder).filter(m -> id.equals(m.id())).isEmpty()) {
             throw new IOException("Not a meeting folder: " + folder);
         }
         Path manifest = folder.resolve(MANIFEST);

@@ -1,11 +1,13 @@
 package org.example.visiontrack.job;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.example.visiontrack.analysis.AnalysisResult;
 import org.example.visiontrack.export.RunInfo;
 
 import java.time.Instant;
 
 /** {@code exportRun} names the exported detection run of this analysis, so its cloud upload can be followed. */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record AnalysisJob(
         String id,
         String fileName,
