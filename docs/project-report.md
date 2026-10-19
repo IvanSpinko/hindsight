@@ -1,22 +1,26 @@
-# VisionTrack: full project report
+# Hindsight (VisionTrack): full project report
 
-State as of 2026-10-14, branch `meeting-notes`, commit `e188937`. This document describes everything the project
+State as of 2026-10-19, `main` after pull request #15 (`c115b37`). This document describes everything the project
 does today, how it does it, what it depends on, what is known to be missing or broken, and what comes next.
-Companion documents: `README.md` (short overview), `docs/meeting-notes-spec.md` (requirements of the meetings
-module, version 2.0).
+Companion documents: `README.md` (plain overview), `docs/api.md` (REST API), `docs/cloud-pipeline.md` (AWS),
+`docs/meeting-notes-spec.md` (requirements of the meetings module, version 2.0).
+
+The app is called Hindsight for users; the code, the `visiontrack.*` settings and the data folders keep the
+original name VisionTrack.
 
 ---
 
 ## 1. What VisionTrack is
 
 A local Windows application (Java 21 + Spring Boot, opened in the browser or as a desktop app with a tray icon)
-with three modes, shown as tabs on one page:
+with three modes and a Settings tab, shown as tabs on one page:
 
 | Mode | What the user does | What comes out |
 |---|---|---|
 | **Video analysis** | uploads a video | which objects appear (99 classes), how many of each, when each was first and last seen, plus a copy of the video with boxes drawn in |
 | **Live camera** | turns on a webcam in the browser | objects recognised live, with boxes over the picture |
-| **Meetings** | records an online meeting (screen, own microphone, the other participants) or uploads an existing recording | a transcript (Russian and English) and structured notes: summary, decisions, action items with owners and due dates, topics with times, open questions |
+| **Meetings** | records an online meeting (screen, own microphone, the other participants) or uploads an existing recording | a transcript and structured notes: summary, decisions, action items with owners and due dates, topics with times, open questions; optional export to Notion |
+| **Settings** | chooses folders, devices, recording quality, notes language, Notion | settings saved per user, GPU name and free video memory |
 
 Everything heavy runs **on the NVIDIA GPU of the user's PC, offline**: no cloud, no API keys, no accounts.
 Without a CUDA-capable NVIDIA GPU the app still starts, but the heavy features answer with a clear error
@@ -47,7 +51,7 @@ Without a CUDA-capable NVIDIA GPU the app still starts, but the heavy features a
 
 | Task | Command (from the project root) |
 |---|---|
-| Build + all tests | `mvn package` (84 tests; they need the NVIDIA GPU because NVENC is used) |
+| Build + all tests | `mvn package` (136 tests; some need the NVIDIA GPU because NVENC is used) |
 | Install the meeting programs and models | `powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1` |
 | Build only the system sound helper | `powershell -ExecutionPolicy Bypass -File packaging\build-loopback.ps1` |
 | Run | `java -jar target\visiontrack-object-detection-aws-1.0-SNAPSHOT.jar`, open http://localhost:8080 |
@@ -65,9 +69,10 @@ All of these folders are ignored by git. Without them the app still runs; meetin
 transcript or the notes are skipped with a warning.
 
 Run profiles:
-- default (`application.yml`): port 8080, listens on all network interfaces, opens the browser.
+- default (`application.yml`): port 8080, listens on 127.0.0.1, opens the browser.
 - `desktop` (`application-desktop.yml`, used by the exe): listens on 127.0.0.1 only, port 47821, tray icon,
-  log file `%LOCALAPPDATA%\VisionTrack\visiontrack.log`, uploads in `%LOCALAPPDATA%\VisionTrack\uploads`.
+  log file `%LOCALAPPDATA%\VisionTrack\visiontrack.log`, uploads, analyses and exports in
+  `%LOCALAPPDATA%\VisionTrack\`, optional overrides in `%LOCALAPPDATA%\VisionTrack\application.yml`.
 - Starting the app a second time on the same port only opens the browser (the first instance keeps running).
 - The browser window is Edge (or Chrome) in "app" mode (`--app=URL`), so it looks like a desktop window.
 
@@ -76,18 +81,19 @@ Run profiles:
 ## 4. Architecture
 
 ```
-Browser page (static/index.html, three tabs, plain JavaScript)
+Browser page (static/index.html, four tabs, plain JavaScript)
         │ REST/JSON, multipart uploads
 Spring Boot 3.5 application (one JVM)
- ├─ web        AnalysisController, LiveDetectionController, MeetingController, GpuErrorHandler, BrowserLauncher (tray)
- ├─ job        AnalysisJobService (queue, 1 worker), InMemoryJobRepository
+ ├─ web        AnalysisController, LiveDetectionController, MeetingController, SettingsController,
+ │             GpuErrorHandler, LocalRequestsOnly, BrowserLauncher (tray)
+ ├─ job        AnalysisJobService (queue, 1 worker), FileJobRepository (one JSON file per analysis)
  ├─ analysis   VideoAnalyzer (decode → detect → track → result)
  ├─ detection  ObjectDetectorProvider → OnnxYoloDetector (ONNX Runtime + CUDA), pre/post-processing
  ├─ tracking   ObjectTracker (IoU)
  ├─ video      VideoReader / VideoWriter (FFmpeg via JavaCV)
  ├─ render     AnnotatedVideoRenderer
  ├─ storage    LocalVideoStorage (interface VideoStorage)
- ├─ config     VisionTrackProperties (all settings, validated)
+ ├─ config     VisionTrackProperties (application.yml, validated), SettingsService (settings.json), GpuStatus
  └─ meeting    recording, import, speech recognition, notes, export (see section 7)
                     │ child processes
        ffmpeg.exe (JavaCV) · audio-loopback.exe · whisper-server.exe · whisper-vad-speech-segments.exe · llama-server.exe
@@ -98,7 +104,8 @@ Design rules that hold everywhere:
   (ONNX Runtime). A crash or a stuck process does not take the app down, and the VRAM is freed by stopping it.
 - **One job at a time** per area (one video analysis worker, one meeting processing thread), so two models never
   compete for the GPU.
-- Folders are the database for meetings (`meeting.json` per folder); video analyses are one JSON file each (`data/analyses`, in the desktop app `%LOCALAPPDATA%\VisionTracknalyses`).
+- Folders are the database for meetings (`meeting.json` per folder); video analyses are one JSON file each
+  (`data/analyses`, in the desktop app `%LOCALAPPDATA%\VisionTrack\analyses`).
 - All project files are English; the UI is English.
 
 ---
@@ -318,12 +325,26 @@ older versions (e.g. the removed slide count) are ignored when reading.
 | GET | `/api/meetings/{id}/notes`, `/transcript` | notes.md / transcript.md as text |
 | GET | `/api/meetings/{id}/recording` | the recording to watch or listen to (range requests for seeking) |
 | POST | `/api/meetings/{id}/open-folder` | open the folder in Explorer |
+| PATCH | `/api/meetings/{id}` | `{title, startedAt}`: rename, change the date (the end moves with it) |
+| GET, POST | `/api/meetings/notion`, `/api/meetings/{id}/notion` | Notion status; send the notes |
+
+The whole API, including the settings endpoints, is in `docs/api.md`.
 
 ### 7.8 Meetings page
 Title, screen, microphone, the output device recorded as "Other participants" (with "headphones recommended"),
 Start/Stop with a REC timer (the tray icon gets a red dot while recording), the upload card, and the list of
 meetings with status badge, sources, warnings, progress bar with the current step, and for READY meetings the
-speech/notes summary with links **Notes**, **Transcript**, **Recording**, plus **Process again** and **Open folder**.
+speech/notes summary with links **Notes**, **Transcript**, **Recording**, plus **Rename or change date**,
+**Send to Notion**, **Process again**, **Open folder** and **Delete**.
+
+### 7.9 Settings tab
+Saved in `%LOCALAPPDATA%\VisionTrack\settings.json` (never logged, ignored by git) and used from the next recording
+or processing on; a value that is not set falls back to `application.yml`.
+- Meetings: folder (meetings already recorded stay in the old one), default screen and microphone with a level
+  meter (Web Audio in the browser), screen fps (1-60) and quality (NVENC `-cq` 33 / 28 / 23), speech engine,
+  notes language (as spoken, or English), deleting the speech WAV files after processing.
+- Notion: integration token (write-only), page for the "Meetings" database, automatic sending.
+- Graphics card: name, driver, total and free video memory from `nvidia-smi`.
 
 ---
 
@@ -382,10 +403,11 @@ Repository:
 ```
 src/main/java/org/example/visiontrack/   application code (packages in section 4)
 src/main/resources/                      application.yml, application-desktop.yml, static/index.html, tray icon
-src/test/java/                           84 tests
+src/test/java/                           136 tests (plus 15 pytest tests in infra/lambda/tests)
 native/audio-loopback/                   system sound helper source (C#)
 packaging/                               build-desktop.ps1, get-models.ps1, build-loopback.ps1, README.txt (for users), icon
-docs/                                    spec and this report
+docs/                                    API, cloud pipeline, spec and this report
+infra/                                   Terraform and the Lambda (Python) of the cloud pipeline
 export_yoloworld.py, export_model.py     model export (Python, Ultralytics)
 models/classes.txt                       the 99 detection classes
 ```
@@ -393,7 +415,8 @@ Ignored by git: `models/*.onnx`, `models/whisper`, `models/llm`, `models/parakee
 `target/`, `.venv-model/`, `settings.json`, `.env`, `*.key`, `hs_err_pid*.log`.
 
 Outside the repository at runtime: `Documents\VisionTrack\Meetings\` (meetings), `%LOCALAPPDATA%\VisionTrack\`
-(desktop log and uploads), `~\.javacpp\cache\` (ffmpeg/ffprobe and natives extracted by JavaCV on first use).
+(`settings.json`; for the desktop app also the log, uploads, analyses and exports), `~\.javacpp\cache\`
+(ffmpeg/ffprobe and natives extracted by JavaCV on first use).
 
 ---
 
@@ -419,7 +442,7 @@ tried on 2026-10-14 was removed together with the decision to use local models o
 
 ---
 
-## 12. Tests (84, `mvn package`)
+## 12. Tests (136, `mvn package`; 15 more for the Lambda with pytest)
 
 | Area | What is checked |
 |---|---|
@@ -431,7 +454,12 @@ tried on 2026-10-14 was removed together with the decision to use local models o
 | System sound | helper answer parsing, mixing arguments, echo filter, llama device parsing, VRAM check message |
 | Notes | JSON parsing and cleaning, Markdown export, chunking, the generator against a fake model (parts, merge, context splitting, language, speaker labels, "Me" in uploads, truncated/invalid answers) |
 | Upload | real mp3, H.264 mp4, VP9 webm and a silent file made with ffmpeg; album covers; accepted types; speaker names |
-| Store | meeting folders, names, reading |
+| Store | meeting folders, names, reading, renaming and moving the date |
+| Parakeet | model files, decoding, punctuation, language by script, Whisper fallback |
+| Notion | page blocks and limits, database creation, replacing a page, rejected bodies, retries, settings |
+| Settings | saving and clearing meeting choices, keeping unknown keys, token kept or removed, page links, `nvidia-smi` parsing, screen quality arguments |
+| Analyses | saved and loaded after a restart, an interrupted one loaded as failed, deleted ones gone, broken files skipped |
+| Security | API refuses requests from other computers |
 
 Acceptance was done in the running app for every stage (recording, upload, transcript, notes, VRAM, no-CUDA mode
 with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call has not been tested yet.
@@ -455,11 +483,12 @@ with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call 
 8. Uploaded recordings get the upload time as their date until it is changed ("Rename or change date…").
    Changing the meetings folder in Settings does not move the meetings already recorded.
 9. Track offsets come from process start times; the screen starts ~1 s after the microphone (fine for watching).
-10. Disk use: screen up to ~3.6 GB per hour with constant motion; audio tracks are kept (no "delete audio after
-    processing" setting yet). CUDA DLLs are duplicated in `tools\whisper`, `tools\llama` and `app\cuda` (~2.5 GB).
+10. Disk use: screen up to ~3.6 GB per hour with constant motion (less with lower fps or "Smaller files" in
+    Settings); the speech WAV files are kept unless Settings says to delete them.
 11. YOLO-World/YOLO11 weights are AGPL-3.0 (Ultralytics): matters if the app is published or shared beyond personal use.
-12. Real calls (Zoom, Teams, Telegram) in Russian and English have not been tested; only TTS voices, a speaker and
-    hand-written transcripts.
+12. Real calls (Zoom, Teams, Telegram) have not been tested yet; only TTS voices, a speaker and hand-written
+    transcripts.
+13. No continuous integration: tests run locally, and some of them need the NVIDIA GPU.
 
 ---
 
@@ -475,6 +504,13 @@ with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call 
 | `dfe31db` | stage 4: notes from speech with a local model (Gemma), slides and the cloud AI client removed |
 | `a141c08` | stage 5: system sound, echo filter, free VRAM check |
 | `e188937` | stage 6: upload of recordings, screen at 30 fps |
+| `777b19e`, `a6dfaee` (PR #1, #2) | AWS data pipeline: export, S3, Lambda, Glue, Athena, Terraform |
+| `97800a5` … `f60143a` (PR #3-#10) | meetings merged, UI redesign, desktop cloud export, shutdown crash fix, faster upload preparation |
+| `dfafeb1` (PR #11) | stage 7: Notion export; the app is called Hindsight |
+| `4ddebbc` (PR #12) | NVIDIA Parakeet as the default speech recognition |
+| `61ef207` (PR #13) | comments and README tidied |
+| `ef7a8ad` (PR #14) | desktop build ships the meeting tools and models |
+| `c115b37` (PR #15) | stage 8: Settings tab, meeting rename, analyses kept across restarts |
 
 ---
 
@@ -483,40 +519,21 @@ with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call 
 Ordered by value for the user; each step follows the usual loop: plan per file → code → tests → check in the
 running app → commit → push.
 
-### Stage 7: Notion export
-- Check the current Notion API first (version header, databases vs data sources, block limits).
-- Settings file `%LOCALAPPDATA%\VisionTrack\settings.json` with the integration token and the target database
-  (secrets never in the jar, git or logs; edited by hand until stage 8).
-- `NotionExporter implements NotesExporter`: a database row per meeting (Name, Date, Duration, Type, Project, Tags,
-  Participants) and a page: Summary → Decisions → Action items as to-do blocks with owner and due date → Timeline
-  → Transcript in a toggle; split into ≤ 100 blocks per request and ≤ 2000 characters per text; ~3 requests per
-  second with retries; optional "Tasks" database with a relation to the meeting; "Create databases" button.
-- Export status in `meeting.json`, "Send to Notion" / "Retry" in the UI, automatic export after processing as an
-  option. Tests against a stub HTTP server.
+Done since the first version of this plan: stage 7 (Notion export), stage 8 (Settings tab) and most of stage 9
+(the desktop build ships everything meetings need).
 
-### Stage 8: Settings tab
-**Done (branch `settings-tab`):** meetings folder, default screen and microphone with a level meter (in the browser),
-screen fps and quality, speech engine, notes language, "delete speech audio after processing", Notion token / page /
-auto-send, GPU name and free VRAM (nvidia-smi); renaming a meeting and changing its date; video analyses kept across
-restarts. Still open from the plan: a level meter for the system sound, the list of installed models.
-
-Planned:
-- Devices with a level meter (microphone and system sound), default monitor, headphones hint.
-- Notion token and database; the notes language (auto / Russian / English); screen fps and quality;
-  "delete audio after processing"; folder for meetings; shows GPU name, free VRAM and installed models.
-- Editing a meeting's title and date (useful for uploads).
-
-### Stage 9: build for a friend
-- Done: `build-desktop.ps1` ships `tools\` and the meeting models with `$APPDIR` paths; `packaging\README.txt`
-  covers the requirements, consent and where meetings are stored.
-- Still open: remove Linux natives from the jar, a 7z archive, download the models on first start instead.
-- One shared copy of the CUDA DLLs to save ~1.5 GB.
+### Still open from stages 8 and 9
+- A level meter for the system sound and a list of the installed models in Settings.
+- A smaller download: remove Linux natives from the jar, one shared copy of the CUDA DLLs (~1.5 GB), a 7z archive
+  or downloading the models on first start.
 
 ### Fixes worth doing before or alongside
 - Test with real calls (Zoom/Teams/Telegram, Russian and English, with and without headphones) and tune
   `EchoFilter` and the notes prompt on them.
 - A small evaluation set for the notes (a few transcripts with expected decisions/tasks/dates) so prompt or model
   changes can be measured instead of judged by eye.
+- Continuous integration: GitHub Actions for the Lambda tests and `terraform validate`, and a Maven profile that
+  skips the GPU tests.
 
 ### Later ideas
 - Speaker separation (diarization) for "Other participants" and uploads, so notes can say who said what.
@@ -524,5 +541,4 @@ Planned:
 - Silero VAD on the GPU through ONNX Runtime CUDA.
 - Search across all meetings ("what did we decide about the release?") with local embeddings, linking answers to
   the moment in the recording: a natural next portfolio piece on top of the existing transcripts.
-- Merge `meeting-notes` into `main` with a pull request and a tagged release, plus a short demo video and
-  measured numbers in the README for the portfolio.
+- A tagged release and a short demo video for the portfolio.
