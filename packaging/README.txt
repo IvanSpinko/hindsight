@@ -19,11 +19,14 @@ REQUIREMENTS
   the live camera, screen recording and speech recognition all run on the GPU. No need to install CUDA,
   everything required is bundled. Without a compatible card the app still opens, but these features show
   "... needs an NVIDIA graphics card with CUDA". If you have an NVIDIA card, update the driver from nvidia.com.
+  Meeting notes need 12 GB of video memory (RTX 3060 12 GB, 4070 or better). The app takes about 15 GB of disk.
 
-MEETINGS IN THIS VERSION
-  Meetings are recorded (screen and your microphone), but this version does not include speech
-  recognition, the notes model or the helper that records the other participants. So a meeting has no
-  transcript, no notes and no voices of the other participants. A later version will include them.
+MEETINGS
+  Record a call (your screen, your microphone and the other participants) or upload a recording.
+  When it ends, the speech is transcribed and a local AI model writes the notes: summary, decisions
+  and action items. Everything runs on this computer; nothing is sent anywhere.
+  Processing an hour of meeting takes a few minutes. Ask everyone in the call before you record it.
+  Meetings are saved in Documents\VisionTrack\Meetings.
 
 CLOSING AND BACKGROUND
   Closing the window does not quit the app - it stays in the tray (the icon next to the clock).
