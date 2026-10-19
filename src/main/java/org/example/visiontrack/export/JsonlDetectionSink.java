@@ -16,10 +16,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
-/**
- * Gzipped JSON Lines on the local disk, always on. Parts are written under {@code in-progress/} and moved
- * atomically to {@code outbox/} when closed, so the outbox only ever holds complete files.
- */
+/** Gzipped JSON Lines on disk: parts are written to {@code in-progress/} and moved to {@code outbox/} when complete. */
 @Component
 public class JsonlDetectionSink implements DetectionSink {
 

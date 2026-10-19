@@ -10,11 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-/**
- * Every API (video analysis, live camera, meetings) answers requests from this computer only: it runs the GPU,
- * reads the screen and microphone and deletes files. The server also binds to 127.0.0.1 by default; this check
- * still holds when {@code server.address} is changed.
- */
+/** The APIs answer requests from this computer only, even if {@code server.address} is changed. */
 @ControllerAdvice(annotations = RestController.class)
 public class LocalRequestsOnly {
 

@@ -142,10 +142,7 @@ public class MeetingController {
         }
     }
 
-    /**
-     * The recording to watch or listen to: the screen with sound, or an uploaded audio file (the browser plays it;
-     * seeking uses range requests).
-     */
+    /** The recording to play; range requests let the browser seek. */
     @GetMapping("/{id}/recording")
     public ResponseEntity<Resource> recording(@PathVariable("id") String id) {
         Meeting meeting = store.find(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found"));

@@ -9,10 +9,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Splits speech into the pieces sent to Whisper. Whisper picks one language per request, so pieces are
- * kept short (at most {@code maxSeconds}) and cut at pauses: a meeting that switches between Russian and
- * English then gets the right language for each part. Silence is never sent, which also avoids Whisper's
- * habit of inventing text in silent audio.
+ * Splits speech into pieces of up to 30 s, cut at pauses. Silence is never sent
+ * (Whisper invents text in silence).
  */
 final class SpeechChunks {
 

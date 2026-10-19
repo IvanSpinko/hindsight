@@ -1,8 +1,8 @@
 package org.example.visiontrack;
 
 /**
- * Heavy work (object detection, speech recognition, screen encoding) runs on an NVIDIA GPU only; there is no
- * CPU fallback. Thrown when CUDA is not available, with a message the UI shows as is.
+ * Thrown when CUDA is not available: heavy work runs on an NVIDIA GPU only.
+ * The message is shown to the user as is.
  */
 public class GpuRequiredException extends RuntimeException {
 

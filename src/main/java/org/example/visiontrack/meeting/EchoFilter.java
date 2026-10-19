@@ -6,12 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Removes echoes from a meeting transcript. Without headphones the microphone also hears the other participants
- * from the speakers, so their words appear twice: on the system track and, a moment later, on the microphone track.
- * A microphone segment whose words were mostly said on the system track at about the same time is such an echo
- * and is dropped; the system segment keeps the words with the right speaker.
- */
+/** Removes microphone segments that echo the other participants (heard through the speakers). */
 final class EchoFilter {
 
     /** How far apart in time the two copies may be (speaker and room delay, different cut points). */

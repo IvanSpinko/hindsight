@@ -96,10 +96,7 @@ public class AnalysisJobService {
         return jobs.findAll();
     }
 
-    /**
-     * Removes a finished analysis: the annotated video, the upload if it is still kept, and the list entry.
-     * The exported detections stay (locally and in the cloud): they are the history the data lake is for.
-     */
+    /** Removes a finished analysis (video, upload, list entry); exported detections are kept. */
     public void delete(String id) {
         AnalysisJob job = jobs.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Analysis not found"));

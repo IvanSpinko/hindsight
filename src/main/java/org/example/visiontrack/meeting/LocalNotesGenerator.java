@@ -11,11 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Meeting notes from a local model: the transcript in, {@link MeetingNotes} JSON out, constrained by the schema in
- * {@link NotesPrompt} and cleaned afterwards. Long meetings are summarised part by part, then the partial notes are
- * merged in one more request (spec 5.4). A part that does not fit the model's context is split further.
- */
+/** Writes {@link MeetingNotes} with a local model. Long meetings are summarised in parts, then merged. */
 final class LocalNotesGenerator implements NotesGenerator {
 
     /** The model's answer; {@code truncated} when it hit the token limit before the JSON was complete. */
@@ -67,10 +63,7 @@ final class LocalNotesGenerator implements NotesGenerator {
         }
     }
 
-    /**
-     * "Me" is the person who recorded, heard on the microphone track. An uploaded recording has no such track, so a
-     * speaker saying "I will do it" is unknown: the model's "Me" owner is removed rather than kept as a guess.
-     */
+    /** Uploads have no microphone track, so "Me" is unknown there: a "Me" owner is dropped, not guessed. */
     static MeetingNotes withoutUnknownMe(MeetingNotes notes, Input input) {
         boolean recorderSpoke = input.segments().stream().anyMatch(s -> MeetingRecorder.MIC.equals(s.source()));
         if (recorderSpoke) return notes;

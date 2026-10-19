@@ -11,10 +11,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Collects the detections of one run into a {@link DetectionSink}. Export problems are logged and switch the
- * export off for this run; they never fail the analysis itself.
- */
+/** Collects one run's detections. Export errors turn the export off for the run, never fail the analysis. */
 public class ExportedRun implements FrameObserver {
 
     private static final Logger log = LoggerFactory.getLogger(ExportedRun.class);

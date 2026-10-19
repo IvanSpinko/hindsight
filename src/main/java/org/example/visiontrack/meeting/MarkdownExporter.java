@@ -10,11 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Writes {@code notes.md} next to the recording: summary, decisions, action items as checkboxes, the timeline,
- * open questions, and a link to the full transcript. The link is relative, so the folder can be moved or opened
- * in any Markdown viewer.
- */
+/** Writes {@code notes.md} next to the recording, with a relative link to the transcript. */
 public final class MarkdownExporter implements NotesExporter {
 
     static final String FILE = "notes.md";

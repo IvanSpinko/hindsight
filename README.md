@@ -1,23 +1,42 @@
 # Hindsight – see what happened, remember what was said
 
-Hindsight is a local Windows app with two modes. **Videos:** upload a video and Hindsight detects objects
-with a YOLO model (ONNX Runtime), tracks them across frames so each physical object is counted once, and
-reports **how many objects of each type** appeared and the **timecode when each one was first (and last)
-seen**. **Meetings:** record a call (or upload a recording) and get a transcript and notes written by local
-models on the GPU; nothing leaves the computer.
+A local Windows app that turns videos and meetings into facts you can search, running entirely on your NVIDIA GPU.
 
-The project started as VisionTrack: the Java package, the `visiontrack.*` settings and the data folders
-(`Documents\VisionTrack`, `%LOCALAPPDATA%\VisionTrack`) still use that name.
+- **Video analysis** – YOLO-World on ONNX Runtime (CUDA) detects and tracks objects, counts each physical object
+  once and reports when it was first and last seen; annotated video export and a live camera mode.
+- **Meeting notes** – records the screen, your microphone and the other participants (or takes an uploaded
+  recording), transcribes it with NVIDIA Parakeet and writes a summary, decisions and action items with a local
+  Gemma 4 12B; optional export to Notion.
+- **Data pipeline** – detections flow to AWS: S3 → Lambda → Parquet → Athena, all in Terraform.
+- **Private by design** – no cloud AI: nothing leaves the computer unless you send it.
+
+**Stack:** Java 21, Spring Boot 3.5, ONNX Runtime (CUDA), FFmpeg/JavaCV with NVENC, whisper.cpp, llama.cpp,
+AWS (S3, Lambda, Glue, Athena), Terraform, Python.
+
+## Requirements
+
+* Windows 10/11 and an NVIDIA GPU with driver 528 or newer (12 GB of VRAM for meeting notes). There is no CPU
+  fallback: without CUDA the app explains what is missing.
+* JDK 21 and Maven; the CUDA 12 runtime and cuDNN 9 for ONNX Runtime (their paths are listed under
+  `visiontrack.model.native-preload` in `application.yml`).
+* Python with `ultralytics`, once, to export the YOLO model.
 
 ## Run locally
 
 ```bash
+pip install ultralytics
+python export_yoloworld.py
+powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1
 mvn package
 java -jar target/visiontrack-object-detection-aws-1.0-SNAPSHOT.jar
 ```
 
-Open http://localhost:8080, drop in a video and wait for the results. Settings live in
-`src/main/resources/application.yml` (model, thresholds, sampling rate, upload limits).
+`export_yoloworld.py` writes `models/yoloworldx-960.onnx` and `models/classes.txt` (edit the class list there).
+`get-models.ps1` downloads the meeting models (~13 GB); video analysis works without them. Open
+http://localhost:8080 and drop in a video. Settings live in `src/main/resources/application.yml`.
+
+The project started as VisionTrack: the Java package, the `visiontrack.*` settings and the data folders
+(`Documents\VisionTrack`, `%LOCALAPPDATA%\VisionTrack`) still use that name.
 
 ## REST API
 
@@ -27,6 +46,22 @@ Open http://localhost:8080, drop in a video and wait for the results. Settings l
 | GET    | `/api/analyses/{id}`  | status (`QUEUED`, `PROCESSING`, `COMPLETED`, `FAILED`), progress, result |
 | GET    | `/api/analyses`       | all jobs, newest first                                         |
 | GET    | `/actuator/health`    | health check for load balancers                                |
+
+```bash
+curl -F "file=@street.mp4" http://localhost:8080/api/analyses
+curl http://localhost:8080/api/analyses/<id>
+```
+
+Completed result (shortened):
+
+```json
+{
+  "totalObjects": 8,
+  "counts":  [{ "label": "person", "count": 4, "firstSeen": "00:00:02.000" }],
+  "objects": [{ "id": 1, "label": "person", "firstSeen": "00:00:02.000", "lastSeen": "00:00:04.800",
+                "visibleSeconds": 2.8, "confidence": 0.903, "box": { "x": 403, "y": 266, "width": 133, "height": 336 } }]
+}
+```
 
 ### Meetings (Windows, local requests only)
 
@@ -45,24 +80,20 @@ Open http://localhost:8080, drop in a video and wait for the results. Settings l
 | GET    | `/api/meetings/notion`            | whether the Notion export is set up (never the token)     |
 | POST   | `/api/meetings/{id}/notion`       | sends the notes to Notion in the background; a page sent before is replaced |
 
-Recordings go to `Documents\VisionTrack\Meetings\<date>_<time>_<title>\`. The screen (ffmpeg `ddagrab`,
-falling back to `gdigrab`, 30 fps, encoded by NVENC), the microphone (`dshow`, 16 kHz mono) and the system sound,
-i.e. the other participants (WASAPI loopback via `tools\audio-loopback\audio-loopback.exe` piped into ffmpeg),
-are captured by the ffmpeg bundled with JavaCV in separate processes, written in 5-minute parts, so a crash keeps what was
-recorded; unfinished meetings are joined on the next start. The screen is only for people to rewatch: the notes
-come from what was said. After "Stop" the meeting is processed in the background (`RECORDED → PROCESSING → READY`):
-both sounds are transcribed as "Me" and "Other participants" (`transcript.md`, `transcript.json`; Silero VAD
-finds the speech, which is recognised in pieces of up to 30 s; echoes of the speakers in the microphone are
-removed). Speech recognition is NVIDIA Parakeet TDT 0.6B v3 by default (ONNX Runtime on CUDA inside the app, the
-most accurate on English, 25 European languages, writes its own punctuation). Parakeet is weak on Russian (it
-writes much of it as Ukrainian), so pieces it wrote in Cyrillic are recognised again by whisper.cpp large-v3-turbo
-after Parakeet is freed. `visiontrack.meetings.speech-engine: whisper` uses whisper.cpp for everything (each piece
-gets its own language, ~100 languages), as does a setup without the Parakeet files. On a 74-minute recording
-Parakeet took 50 s and Whisper 2 min 23 s. Then a local model, Gemma 4 12B on
-llama.cpp, writes the notes (`notes.md`, `notes.json`: summary, decisions, action items with owners and due dates,
-timeline, open questions). Everything runs offline on the GPU. Install the programs and models once with
-`powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1` (downloads ~12 GB into `tools\` and
-`models\` and builds the system sound helper with the C# compiler built into Windows); without them meetings are still recorded, only the transcript or the notes are skipped.
+Recordings go to `Documents\VisionTrack\Meetings\<date>_<time>_<title>\`.
+
+* **Recording** – the screen (ffmpeg `ddagrab`, falling back to `gdigrab`, 30 fps, NVENC), the microphone and
+  the system sound (WASAPI loopback helper) are captured in separate ffmpeg processes, in 5-minute parts, so a
+  crash keeps what was recorded. The screen is only for rewatching; the notes come from what was said.
+* **Speech** – Silero VAD finds the speech and NVIDIA Parakeet TDT 0.6B v3 (ONNX Runtime on CUDA) transcribes it
+  as "Me" and "Other participants", with punctuation; echoes of the speakers in the microphone are removed.
+  Whisper large-v3-turbo (whisper.cpp) is the backup: it takes the pieces Parakeet writes in Cyrillic, runs when
+  Parakeet is not installed, and handles everything with `visiontrack.meetings.speech-engine: whisper`.
+  A 74-minute recording took 50 s with Parakeet and 2 min 23 s with Whisper.
+* **Notes** – Gemma 4 12B on llama.cpp writes `notes.md` and `notes.json`: summary, decisions, action items with
+  owners and due dates, timeline and open questions.
+* The models run one after another on the GPU and are freed after each step. Without them meetings are still
+  recorded; only the transcript or the notes are skipped.
 
 #### Notes in Notion (optional)
 
@@ -92,22 +123,6 @@ above). `autoExport: true` sends every meeting after processing. Sending again w
 one to Notion's trash. The file holds a secret: it is in `.gitignore`, and the app never logs it. Notion API version
 `2026-03-11`; requests are spaced to stay under Notion's limit of about three per second and retried on `429`.
 
-```bash
-curl -F "file=@street.mp4" http://localhost:8080/api/analyses
-curl http://localhost:8080/api/analyses/<id>
-```
-
-Completed result (shortened):
-
-```json
-{
-  "totalObjects": 8,
-  "counts":  [{ "label": "person", "count": 4, "firstSeen": "00:00:02.000" }],
-  "objects": [{ "id": 1, "label": "person", "firstSeen": "00:00:02.000", "lastSeen": "00:00:04.800",
-                "visibleSeconds": 2.8, "confidence": 0.903, "box": { "x": 403, "y": 266, "width": 133, "height": 336 } }]
-}
-```
-
 ## How it works
 
 ```
@@ -126,7 +141,7 @@ upload ─► VideoStorage ─► job queue ─► VideoAnalyzer
 | `tracking`    | links detections across frames                               |
 | `video`       | FFmpeg decoding and encoding                                 |
 | `storage`     | where uploads are kept (`VideoStorage`)                      |
-| `meeting`     | meeting recording: ffmpeg captures, segments, `meeting.json` |
+| `meeting`     | recording, speech recognition, notes, Notion export          |
 | `export`      | detection events as JSON Lines, outbox, optional S3 upload   |
 
 ### Tuning the count

@@ -8,11 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Screen capture arguments. The primary method is {@code ddagrab} (Desktop Duplication API: cheap, captures
- * hardware-accelerated windows); {@code gdigrab} is the fallback for systems where it fails, e.g. some hybrid-GPU laptops.
- * Video is encoded by NVENC on the NVIDIA GPU; ddagrab frames stay in video memory all the way to the encoder.
- */
+/** Screen capture with {@code ddagrab} (or {@code gdigrab} where it fails), encoded by NVENC. */
 final class ScreenCapture {
 
     enum Method { DDAGRAB, GDIGRAB }
@@ -20,10 +16,8 @@ final class ScreenCapture {
     // The recording is for people to rewatch, so the mouse pointer is kept: it shows what was pointed at
     // H.264 needs even sizes
     private static final String EVEN_SIZE = "scale=trunc(iw/2)*2:trunc(ih/2)*2";
-    // Constant quality: a still screen costs almost nothing, scrolling and shared videos get up to 8 Mbit/s, and
-    // text stays sharp (measured at 2560x1440, 30 fps: ~0.4-0.6 GB per hour of a mostly still screen).
-    // No B-frames: they shift the first timestamps of a part at low frame rates. Forced keyframes must be IDR
-    // frames, or the segment muxer cannot start a new part there; a regular keyframe every 2 s keeps seeking quick.
+    // Constant quality keeps text sharp at a low bitrate. No B-frames and IDR keyframes,
+    // so each part starts cleanly; a keyframe every 2 s keeps seeking quick.
     static final List<String> ENCODER = List.of(
             "-c:v", "h264_nvenc", "-bf", "0", "-forced-idr", "1",
             "-rc", "vbr", "-cq", "28", "-b:v", "0", "-maxrate", "8M", "-bufsize", "16M", "-g", "60");

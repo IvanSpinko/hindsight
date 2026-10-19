@@ -10,7 +10,7 @@
   try { const t = localStorage.getItem('visiontrack.theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
 </script>
 <style>
-  /* Sand and terracotta: warm sandy neutrals, a terracotta accent and earthy status colours */
+  /* Colours: sand neutrals with a terracotta accent */
   :root {
     --bg: #f6f1ea; --surface: #fffdf9; --raised: #faf5ee; --border: #e8dfd3; --border-strong: #d6c8b7;
     --text: #2b2420; --muted: #7a6c60; --accent: #b65a37; --accent-strong: #9f4c2c; --accent-soft: #f6e6dc; --on-accent: #ffffff;
@@ -18,7 +18,7 @@
     --rec: #cf4636; --shadow: 0 1px 2px rgba(70, 45, 20, .05), 0 2px 12px rgba(70, 45, 20, .05);
     --menu-shadow: 0 8px 28px rgba(70, 45, 20, .16); color-scheme: light;
   }
-  /* Dark theme: follows the system unless the header button picked one (data-theme on <html>, kept in localStorage) */
+  /* Dark theme: follows the system unless picked in the header */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #1c1814; --surface: #242019; --raised: #2b261f; --border: #3a322a; --border-strong: #4b4136;
@@ -462,7 +462,7 @@
 <div id="toasts" aria-live="polite"></div>
 
 <script>
-// ---------- theme button: switches between light and dark; the choice is remembered ----------
+// Theme button: switches between light and dark; the choice is remembered
 (() => {
   const button = document.getElementById('theme-toggle');
   const root = document.documentElement;
@@ -489,7 +489,7 @@
 </script>
 
 <script>
-// ---------- "done" notifications: a toast in the page, plus a system notification while the tab is hidden ----------
+// "done" notifications: a toast in the page, plus a system notification while the tab is hidden
 window.notifyDone = (() => {
   const ask = () => {
     try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch {}
@@ -519,9 +519,8 @@ window.notifyDone = (() => {
 </script>
 
 <script>
-// ---------- small pop-up menus: "..." on list entries and "Download" on a result ----------
-// Items are { label, onClick, href, danger } or '-' for a separator. One menu is open at a time; lists that
-// refresh on a timer wait while a menu is open (isOpen) and redraw on the 'menuclose' event.
+// Small pop-up menus: "..." on list entries and "Download" on a result
+// Items are { label, onClick, href, danger } or '-'; refreshing lists wait while a menu is open.
 window.actionMenu = (() => {
   const DOTS = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
   const CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
@@ -605,7 +604,7 @@ window.actionMenu = (() => {
   let selectedFile = null, currentJob = null, activeLabel = null, pollTimer = null, annotatedVideo = false;
   let highlightId = null;
 
-  // ---------- upload ----------
+  // Upload
   // Choosing a file starts the analysis right away: there is nothing else to set
   function selectFile(file) {
     if (!file) return;
@@ -662,7 +661,7 @@ window.actionMenu = (() => {
   }
   resetBtn.addEventListener('click', showUpload);
 
-  // ---------- polling ----------
+  // Polling
   function track(jobId) {
     history.replaceState(null, '', `?job=${encodeURIComponent(jobId)}`);
     let sawRunning = false;   // notify only about analyses that finished while this page watched them
@@ -700,7 +699,7 @@ window.actionMenu = (() => {
     poll();
   }
 
-  // ---------- results ----------
+  // Results
   function render(job) {
     currentJob = job;
     activeLabel = null;
@@ -731,7 +730,7 @@ window.actionMenu = (() => {
     $('results').hidden = false;
   }
 
-  // ---------- cloud upload state ----------
+  // Cloud upload state
   const CLOUD_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1-1 7.9z"/></svg>';
   const CLOUD_TEXT = { uploaded: 'In the cloud', pending: 'Waiting to upload', retrying: 'Upload retrying' };
 
@@ -751,7 +750,7 @@ window.actionMenu = (() => {
     $('r-cloud').replaceChildren(...(badge ? [badge] : []));
   }
 
-  // ---------- timeline ----------
+  // Timeline
   // One lane per object type; a bar wherever an object of that type is on screen (consecutive sightings merged).
   const MAX_LANES = 12;
   let playheads = [];
@@ -932,9 +931,8 @@ window.actionMenu = (() => {
     return `${n} ${word}${n === 1 ? '' : 's'}`;
   }
 
-  // ---------- boxes over the video ----------
-  // The server reports each object's position in every analysed frame (result.objects[].track).
-  // While the video plays, positions between two analysed frames are interpolated.
+  // Boxes over the video
+  // Positions between two analysed frames are interpolated while the video plays.
   const overlay = $('overlay'), ctx = overlay.getContext('2d');
   const COLORS = ['#f0716c', '#4fb3e8', '#5cc98a', '#f2c14e', '#c47ee8', '#f2914a', '#45cbbd', '#9d8cf0', '#c4d04a', '#f08cb3'];
 
@@ -1012,7 +1010,7 @@ window.actionMenu = (() => {
     requestAnimationFrame(animate);
   })();
 
-  // ---------- downloads: a menu next to the result title ----------
+  // Downloads: a menu next to the result title
   function renderDownloads(job) {
     const items = [
       { label: 'Objects as CSV', onClick: downloadCsv },
@@ -1036,9 +1034,8 @@ window.actionMenu = (() => {
     URL.revokeObjectURL(a.href);
   }
 
-  // ---------- video ----------
-  // Preferred: the server's copy with the boxes drawn into the frames (works after a page refresh
-  // and can be downloaded). Fallback: the local file with boxes drawn live on the canvas overlay.
+  // Video
+  // The server's copy with boxes drawn in; otherwise the local file with boxes on a canvas overlay.
 
   function showVideo(job) {
     annotatedVideo = Boolean(job.annotatedVideoUrl);
@@ -1061,7 +1058,7 @@ window.actionMenu = (() => {
     if (player.src.startsWith('blob:')) URL.revokeObjectURL(player.src);
   }
 
-  // ---------- helpers ----------
+  // Helpers
   function showProgress(percent, text) {
     $('progress-box').hidden = false;
     $('bar').style.width = `${Math.max(0, Math.min(100, percent))}%`;
@@ -1078,7 +1075,7 @@ window.actionMenu = (() => {
   function hideError() { $('error').hidden = true; }
   function parseJson(text) { try { return JSON.parse(text); } catch { return null; } }
 
-  // ---------- recent videos ----------
+  // Recent videos
   // The server keeps finished analyses in memory; the list shows them newest first, grouped by day.
   const JOB_STATUS = { QUEUED: 'Queued', PROCESSING: 'Analysing', COMPLETED: 'Done', FAILED: 'Failed' };
   let pastJobs = [], historyTimer = null, historyWaiting = false;
@@ -1225,7 +1222,7 @@ window.actionMenu = (() => {
 </script>
 
 <script>
-// ---------- live camera ----------
+// Live camera
 (() => {
   const $ = id => document.getElementById(id);
   const COLORS = ['#f0716c', '#4fb3e8', '#5cc98a', '#f2c14e', '#c47ee8', '#f2914a', '#45cbbd', '#9d8cf0', '#c4d04a', '#f08cb3'];
@@ -1422,7 +1419,7 @@ window.actionMenu = (() => {
 </script>
 
 <script>
-// ---------- meetings ----------
+// Meetings
 (() => {
   const $ = id => document.getElementById(id);
   const CONSENT_KEY = 'visiontrack.recordingConsent';
@@ -1612,7 +1609,7 @@ window.actionMenu = (() => {
     if (busy) poll = setTimeout(loadMeetings, 2000);
   }
 
-  // ---------- meeting list: search, status filter, grouped by day ----------
+  // Meeting list: search, status filter, grouped by day
   const STATUS_TEXT = { RECORDING: 'Recording', RECORDED: 'Waiting', PROCESSING: 'Processing', READY: 'Ready', FAILED: 'Failed' };
   const FILTERS = [
     { key: 'all', label: 'All', test: () => true },
@@ -1856,7 +1853,7 @@ window.actionMenu = (() => {
     loadMeetings();
   }
 
-  // ---------- notes, transcript and recording inside the card ----------
+  // Notes, transcript and recording inside the card
   function panelFor(meeting, kind) {
     const cached = panels.get(meeting.id);
     if (cached && cached.kind === kind) return cached.node;
@@ -1906,8 +1903,7 @@ window.actionMenu = (() => {
     panel.replaceChildren(body, foot);
   }
 
-  // The small Markdown subset MarkdownExporter writes: headings, lists, task boxes, bold, italics, code, links, rules.
-  // Everything is escaped first, so text from the model cannot inject markup.
+  // The Markdown subset MarkdownExporter writes; text is escaped first, so the model cannot inject markup.
   function markdownToHtml(md, id) {
     const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const inline = s => esc(s)

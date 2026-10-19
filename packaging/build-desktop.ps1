@@ -54,14 +54,11 @@ if (Test-Path "dist\Hindsight") { Remove-Item -Recurse -Force "dist\Hindsight" }
     --java-options '-Dvisiontrack.model.classes-path=$APPDIR\models\classes.txt' `
     --java-options '-Dvisiontrack.model.native-dir=$APPDIR\cuda'
 if ($LASTEXITCODE -ne 0) { throw "jpackage failed" }
-# The JDK bundles an older VC++ runtime (14.36) that the exe loads before our code runs, and
-# onnxruntime needs 14.4x+. Ship the newer System32 copies instead (app-local deployment is allowed).
+# onnxruntime needs a newer VC++ runtime than the one bundled with the JDK: ship the System32 copies
 foreach ($dll in "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll") {
     Copy-Item "$env:SystemRoot\System32\$dll" "dist\Hindsight\runtime\bin\$dll" -Force
 }
-# onnxruntime_gpu needs the CUDA 12 runtime and cuDNN 9, which only come with the CUDA Toolkit, not
-# with the NVIDIA driver. Ship them in app\cuda; the app pre-loads them (visiontrack.model.native-dir)
-# so it runs on any NVIDIA GPU with a recent driver. cudnn_adv (RNNs) is not used by YOLO.
+# CUDA 12 and cuDNN 9 come only with the CUDA Toolkit, so ship them in app\cuda (cudnn_adv is not needed)
 $cuda = "cudart64_12.dll", "cublas64_12.dll", "cublasLt64_12.dll", "cufft64_11.dll" | ForEach-Object { Join-Path $CudaBin $_ }
 $cudnn = Get-ChildItem "$CudnnBin\cudnn*64_9.dll" -ErrorAction SilentlyContinue | Where-Object Name -ne "cudnn_adv64_9.dll"
 $missing = $cuda | Where-Object { -not (Test-Path $_) }

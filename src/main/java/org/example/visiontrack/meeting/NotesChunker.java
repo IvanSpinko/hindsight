@@ -4,10 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * Splits a long meeting into parts of about {@code chunkSeconds} for partial summaries (spec 5.4), so each request
- * fits the local model's context. Parts are cut between speech segments, never inside one.
- */
+/** Splits a long meeting into parts of about {@code chunkSeconds} that fit the model's context. */
 final class NotesChunker {
 
     /** A meeting no longer than this many chunks is summarised in one go: a short tail is not worth its own part. */

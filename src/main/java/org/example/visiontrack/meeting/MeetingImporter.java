@@ -16,11 +16,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Adds an existing recording (audio or video file) as a meeting: the file is saved into a new meeting folder and
- * the meeting is queued; {@link MeetingJobService} prepares it ({@link RecordingImport}) and then transcribes it and
- * writes the notes like a recorded meeting.
- */
+/** Adds an existing audio or video file as a meeting and queues it for processing. */
 @Service
 public class MeetingImporter {
 

@@ -9,12 +9,9 @@ import org.springframework.stereotype.Component;
 import java.util.function.Function;
 
 /**
- * Loads the detector on first use and can unload it again, so its VRAM is free while a meeting is processed by
- * the speech and notes models. When it cannot be loaded (no NVIDIA GPU, missing model) the app still runs; video
- * analysis and the live camera report the reason instead.
+ * Loads the detector on first use and unloads it to free VRAM for meeting processing.
  * <p>
- * Deliberately not closed on shutdown: closing a CUDA session while the JVM exits crashes inside onnxruntime.dll
- * (EXCEPTION_ACCESS_VIOLATION), and the process ending frees the GPU memory anyway.
+ * Not closed on shutdown: closing a CUDA session while the JVM exits crashes onnxruntime.
  */
 @Component
 public class ObjectDetectorProvider {
@@ -30,8 +27,8 @@ public class ObjectDetectorProvider {
     }
 
     /**
-     * Runs {@code work} with the detector, loading it if needed; it is not unloaded while in use. Throws the reason
-     * it cannot be loaded, a {@link org.example.visiontrack.GpuRequiredException} without CUDA.
+     * Runs {@code work} with the detector, loading it if needed;
+     * throws {@link org.example.visiontrack.GpuRequiredException} without CUDA.
      */
     public <T> T use(Function<OnnxYoloDetector, T> work) {
         OnnxYoloDetector current;

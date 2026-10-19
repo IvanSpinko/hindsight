@@ -13,9 +13,8 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Meeting notes as written by the model (spec section 6). Unknown values are {@code null} or empty lists, never
- * guesses; {@link #cleaned} enforces that on whatever the model returned. Times are {@code HH:MM:SS} on the
- * meeting timeline and {@code due} is an ISO date.
+ * Notes as written by the model. Unknown values are null or empty, never guesses;
+ * times are {@code HH:MM:SS} on the meeting timeline, {@code due} is an ISO date.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record MeetingNotes(
@@ -53,11 +52,7 @@ public record MeetingNotes(
         openQuestions = nonNull(openQuestions);
     }
 
-    /**
-     * Drops what does not follow the schema instead of keeping a guess: blank text becomes null, a type outside
-     * {@link #TYPES} and a malformed time or date become null, empty and repeated list entries are removed,
-     * an action item without a task and a timeline entry without a topic are dropped.
-     */
+    /** Drops whatever breaks the schema: blank text, unknown types, bad times and dates, empty or repeated entries. */
     public MeetingNotes cleaned() {
         String cleanType = text(type) == null ? null : type.strip().toLowerCase(Locale.ROOT);
         List<ActionItem> items = new ArrayList<>();

@@ -14,7 +14,7 @@ exported_path = model.export(
     simplify=False
 )
 
-# Copy the new model into models under a separate name
+# Copy it into models/ under its own name
 destination = Path(f"models/{model_name}-960.onnx")
 shutil.copy2(exported_path, destination)
 

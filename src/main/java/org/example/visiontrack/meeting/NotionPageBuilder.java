@@ -13,11 +13,8 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Turns a meeting's notes into Notion requests: the database the notes go to, a page in it with the meeting's
- * properties, and the page body (Summary, Decisions, Action items as to-dos, Timeline, Open questions, then the
- * transcript in a section that opens on click). Empty sections are left out. Everything respects Notion's request
- * limits: at most 2000 characters per rich text and 100 elements per array; {@link #batches} splits a long list of
- * blocks into requests.
+ * Builds the Notion database, page properties and page body from the notes,
+ * within Notion's limits (2000 characters per text, 100 items per array).
  */
 final class NotionPageBuilder {
 
@@ -164,10 +161,7 @@ final class NotionPageBuilder {
         return block;
     }
 
-    /**
-     * Splits blocks into requests of at most {@link #MAX_ITEMS} blocks and {@code maxBytes} of JSON. A single block
-     * larger than {@code maxBytes} still gets a request of its own (its text is limited anyway).
-     */
+    /** Splits blocks into requests of at most {@link #MAX_ITEMS} blocks and {@code maxBytes} of JSON. */
     List<List<ObjectNode>> batches(List<ObjectNode> blocks, int maxBytes) {
         List<List<ObjectNode>> batches = new ArrayList<>();
         List<ObjectNode> current = new ArrayList<>();

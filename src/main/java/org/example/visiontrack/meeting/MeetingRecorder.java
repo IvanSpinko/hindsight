@@ -34,11 +34,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 /**
- * Records one meeting at a time: the screen, the microphone and the system sound (the other participants),
- * each in its own ffmpeg process writing segments, so a crash loses at most the unfinished end of a segment.
- * On stop the segments become one {@code recording.mp4} (screen and both sounds, for watching) plus
- * {@code audio/mic.wav} and {@code audio/system.wav} for speech recognition, and the meeting is handed to
- * {@link MeetingJobService}. Nothing is analysed while recording, to keep the meeting itself smooth.
+ * Records one meeting at a time: screen, microphone and system sound, each in its own ffmpeg process.
+ * On stop the parts become {@code recording.mp4} plus WAV tracks for speech recognition.
  */
 @Service
 public class MeetingRecorder {
@@ -222,10 +219,7 @@ public class MeetingRecorder {
         return CaptureProcess.start(MIC, ffmpeg().executable(), args, folder.resolve("logs/mic.log"));
     }
 
-    /**
-     * The other participants: whatever the default output device plays, captured by the audio-loopback helper.
-     * Without the helper, or if it cannot open the device, the meeting is recorded without them.
-     */
+    /** System sound via the audio-loopback helper; without it the meeting is recorded without the other side. */
     private CaptureProcess startSystemAudio(Path folder) throws IOException, CaptureFailure, InterruptedException {
         Path helper = settings.systemAudioHelper();
         if (!SystemAudioCapture.isInstalled(helper)) {
@@ -270,10 +264,7 @@ public class MeetingRecorder {
         }
     }
 
-    /**
-     * Joins the segments of every track, records durations and marks the meeting as recorded.
-     * A {@code recovered} meeting was cut off by a crash; it ends where its last segment ends.
-     */
+    /** Joins each track's segments and marks the meeting recorded; a {@code recovered} one ends at its last segment. */
     private Meeting finish(Meeting meeting, Path folder, boolean recovered) {
         if (recovered) meeting = meeting.withWarning("Recovered: the app was closed during the recording");
         Instant stoppedAt = Instant.now();
@@ -311,10 +302,7 @@ public class MeetingRecorder {
         return result;
     }
 
-    /**
-     * Replaces the joined screen video with {@code recording.mp4} that also carries the microphone and the system
-     * sound, mixed, so the user gets one file to watch. The audio tracks stay for speech recognition.
-     */
+    /** Adds the microphone and system sound to the screen video, so there is one file to watch. */
     private List<Meeting.Track> combineIntoRecording(String id, Path folder, List<Meeting.Track> tracks, List<String> problems) {
         Meeting.Track screen = tracks.stream().filter(t -> t.kind().equals(SCREEN)).findFirst().orElse(null);
         if (screen == null) return tracks;
