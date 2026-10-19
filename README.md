@@ -51,12 +51,17 @@ i.e. the other participants (WASAPI loopback via `tools\audio-loopback\audio-loo
 are captured by the ffmpeg bundled with JavaCV in separate processes, written in 5-minute parts, so a crash keeps what was
 recorded; unfinished meetings are joined on the next start. The screen is only for people to rewatch: the notes
 come from what was said. After "Stop" the meeting is processed in the background (`RECORDED → PROCESSING → READY`):
-whisper.cpp transcribes both sounds as "Me" and "Other participants" (`transcript.md`, `transcript.json`; Silero
-VAD finds the speech, each piece of up to 30 s gets its own language, Russian or English, large-v3-turbo on CUDA;
-echoes of the speakers in the microphone are removed), then a local model, Gemma 4 12B on
+both sounds are transcribed as "Me" and "Other participants" (`transcript.md`, `transcript.json`; Silero VAD
+finds the speech, which is recognised in pieces of up to 30 s; echoes of the speakers in the microphone are
+removed). Speech recognition is NVIDIA Parakeet TDT 0.6B v3 by default (ONNX Runtime on CUDA inside the app, the
+most accurate on English, 25 European languages, writes its own punctuation). Parakeet is weak on Russian (it
+writes much of it as Ukrainian), so pieces it wrote in Cyrillic are recognised again by whisper.cpp large-v3-turbo
+after Parakeet is freed. `visiontrack.meetings.speech-engine: whisper` uses whisper.cpp for everything (each piece
+gets its own language, ~100 languages), as does a setup without the Parakeet files. On a 74-minute recording
+Parakeet took 50 s and Whisper 2 min 23 s. Then a local model, Gemma 4 12B on
 llama.cpp, writes the notes (`notes.md`, `notes.json`: summary, decisions, action items with owners and due dates,
 timeline, open questions). Everything runs offline on the GPU. Install the programs and models once with
-`powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1` (downloads ~10 GB into `tools\` and
+`powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1` (downloads ~12 GB into `tools\` and
 `models\` and builds the system sound helper with the C# compiler built into Windows); without them meetings are still recorded, only the transcript or the notes are skipped.
 
 #### Notes in Notion (optional)

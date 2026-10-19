@@ -64,10 +64,11 @@ infra/terraform.tfvars
 infra/build/
 infra/tfplan*
 
-# Whisper and the notes model (llama.cpp, whisper.cpp binaries and models, fetched by packaging/get-models.ps1)
+# Speech recognition and the notes model (whisper.cpp, Parakeet, llama.cpp binaries and models, fetched by packaging/get-models.ps1)
 tools/
 models/whisper/
 models/llm/
+models/parakeet-tdt-0.6b-v3/
 
 ### Local working notes (not published) ###
 docs/internal/

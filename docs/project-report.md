@@ -57,6 +57,7 @@ Without a CUDA-capable NVIDIA GPU the app still starts, but the heavy features a
 `get-models.ps1` downloads and installs:
 - whisper.cpp build `b5454` (CUDA 12.4) → `tools\whisper` (server, VAD tool, DLLs, ~1.1 GB);
 - `ggml-large-v3-turbo-q8_0.bin` and `ggml-silero-v5.1.2.bin` → `models\whisper` (~0.9 GB);
+- NVIDIA Parakeet TDT 0.6B v3, ONNX export by istupakov (fp32) → `models\parakeet-tdt-0.6b-v3` (~2.5 GB);
 - llama.cpp build `b11624` (CUDA 12.4) → `tools\llama` (server and DLLs, ~1.2 GB);
 - `gemma-4-12b-it-qat-q4_0.gguf` → `models\llm` (7.0 GB);
 - builds `tools\audio-loopback\audio-loopback.exe` with the C# compiler that ships with Windows.
@@ -219,7 +220,18 @@ steps and polled by the page every 2 s.
 
 1. **Preparing the recording** (uploads only, see 7.3).
 2. **Free the GPU**: object detection is unloaded unless a video analysis or the live camera is using it.
-3. **Recognising speech** (`WhisperCppTranscriber`), all speech tracks (`mic`, `system` or `mixed`) with **one**
+3. **Recognising speech** with the engine set in `meetings.speech-engine`. **Parakeet** (default,
+   `ParakeetTranscriber`): NVIDIA Parakeet TDT 0.6B v3 in ONNX Runtime on CUDA inside the app (`ParakeetModel`:
+   `nemo128.onnx` mel features, the encoder, then greedy token-and-duration decoding with `decoder_joint`), loaded
+   for the step and freed after. It uses the same Silero VAD and `SpeechChunks` pieces as Whisper, writes its own
+   punctuation, and its tokens are cut into one segment per sentence (or at a pause of 1.5 s) with 80 ms timing.
+   It does not report a language, so each segment is labelled from its letters (Cyrillic → `ru`, otherwise the
+   first other allowed language, `en` by default). Parakeet writes much Russian as Ukrainian, so pieces whose text
+   is mostly Cyrillic are handed over: after Parakeet is freed, a `whisper-server` recognises just those pieces
+   (`WhisperCppTranscriber.transcribePieces`) and the transcript names both models. Without the Parakeet files
+   the step falls back to Whisper. Measured on a 74-minute upload (RTX, CUDA): Parakeet 50 s for everything,
+   Whisper turbo 2 min 23 s; on clean English both wrote the same text.
+   **Whisper** (`WhisperCppTranscriber`), all speech tracks (`mic`, `system` or `mixed`) with **one**
    `whisper-server` process (model loaded once, ~0.9 GB VRAM, CUDA required):
    - Silero VAD (`whisper-vad-speech-segments.exe`, on the CPU) finds speech; pauses of 0.3 s separate segments;
    - `SpeechChunks` groups them into pieces of ≤ 30 s (a pause ≥ 2 s always splits, ≥ 0.8 s splits after 10 s);
@@ -321,7 +333,8 @@ speech/notes summary with links **Notes**, **Transcript**, **Recording**, plus *
 |---|---|---|---|
 | YOLO-World (ONNX Runtime) | CUDA | ~3 GB | video analysis, live camera; loaded on first use, unloaded during meeting processing |
 | Screen encoding, annotated video, upload re-encoding | NVENC | small | while recording / rendering / preparing |
-| Whisper large-v3-turbo q8_0 (whisper.cpp) | CUDA | ~0.9 GB | speech recognition step, then stopped |
+| Parakeet TDT 0.6B v3 (ONNX Runtime, fp32) | CUDA | ~3 GB | speech recognition step (default), then freed |
+| Whisper large-v3-turbo q8_0 (whisper.cpp) | CUDA | ~0.9 GB | speech recognition step (`speech-engine: whisper`), then stopped |
 | Gemma 4 12B (llama.cpp) | CUDA | ~7.7 GB | notes step, then stopped |
 
 The models never run at the same time: YOLO is unloaded, Whisper is stopped before Gemma starts, and the free
@@ -351,6 +364,8 @@ meeting processing fails with "needs an NVIDIA graphics card", recording still w
 | `meetings.segment-seconds`, `max-recording-minutes` | 300, 360 | part length, safety limit |
 | `meetings.ffmpeg-dir` | (bundled) | use another ffmpeg |
 | `meetings.system-audio-helper` | `tools/audio-loopback/audio-loopback.exe` | system sound |
+| `meetings.speech-engine` | `parakeet` | `parakeet` or `whisper` |
+| `meetings.parakeet.directory` | `models/parakeet-tdt-0.6b-v3` | Parakeet ONNX files |
 | `meetings.whisper.directory`, `model`, `vad-model`, `languages` | `tools/whisper`, large-v3-turbo q8_0, Silero v5.1.2, `[ru, en]` | speech |
 | `meetings.notes.directory`, `model` | `tools/llama`, `models/llm/gemma-4-12b-it-qat-q4_0.gguf` | notes model |
 | `meetings.notes.chunk-minutes`, `context-tokens`, `max-tokens` | 10, 16384, 4096 | notes chunking and limits |
@@ -374,7 +389,7 @@ docs/                                    spec and this report
 export_yoloworld.py, export_model.py     model export (Python, Ultralytics)
 models/classes.txt                       the 99 detection classes
 ```
-Ignored by git: `models/*.onnx`, `models/whisper`, `models/llm`, `tools/`, `weights/`, `data/`, `dist/`,
+Ignored by git: `models/*.onnx`, `models/whisper`, `models/llm`, `models/parakeet-tdt-0.6b-v3`, `tools/`, `weights/`, `data/`, `dist/`,
 `target/`, `.venv-model/`, `settings.json`, `.env`, `*.key`, `hs_err_pid*.log`.
 
 Outside the repository at runtime: `Documents\VisionTrack\Meetings\` (meetings), `%LOCALAPPDATA%\VisionTrack\`
@@ -392,6 +407,7 @@ Outside the repository at runtime: `Documents\VisionTrack\Meetings\` (meetings),
 | YOLO-World X, YOLO11x weights (Ultralytics) | exported 2026-10-13 | **AGPL-3.0**: sharing the app publicly means sharing its source under AGPL (or an Ultralytics licence) |
 | whisper.cpp | b5454 | MIT |
 | Whisper large-v3-turbo (ggml q8_0) | | MIT |
+| NVIDIA Parakeet TDT 0.6B v3 (ONNX export by istupakov) | | CC-BY-4.0 (credit NVIDIA when sharing) |
 | Silero VAD v5.1.2 (ggml) | | MIT |
 | llama.cpp | b11624 | MIT |
 | Gemma 4 12B instruct QAT Q4_0 | | Apache 2.0 |

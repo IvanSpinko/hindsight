@@ -1,7 +1,7 @@
 # Downloads what meeting processing runs on the GPU: whisper.cpp (speech recognition) into tools\whisper,
-# llama.cpp (notes) into tools\llama, and their models into models\whisper and models\llm; builds the system
+# llama.cpp (notes) into tools\llama, and their models into models\whisper, models\parakeet-tdt-0.6b-v3 and models\llm; builds the system
 # sound helper into tools\audio-loopback.
-# All four folders are ignored by git (about 1.1 + 1.2 GB of programs, 1.1 + 7 GB of models).
+# All four folders are ignored by git (about 1.1 + 1.2 GB of programs, 1.1 + 2.5 + 7 GB of models).
 # Usage (from the project root):  powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1
 param(
     # whisper.cpp and llama.cpp release builds that have the Windows CUDA binaries attached
@@ -48,6 +48,13 @@ if ($Force -or -not (Test-Path "tools\whisper\whisper-server.exe")) {
 Get-Model "models\whisper" "ggml-large-v3-turbo-q8_0.bin" "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin"
 Get-Model "models\whisper" "ggml-silero-v5.1.2.bin" "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin"
 
+# NVIDIA Parakeet TDT 0.6B v3 (CC-BY-4.0), the default speech recognition: ONNX export for ONNX Runtime on CUDA, ~2.5 GB.
+# It runs in the app itself; the Whisper VAD tool above still finds the speech for it.
+$parakeet = "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main"
+foreach ($file in "config.json", "vocab.txt", "nemo128.onnx", "decoder_joint-model.onnx", "encoder-model.onnx", "encoder-model.onnx.data") {
+    Get-Model "models\parakeet-tdt-0.6b-v3" $file "$parakeet/$file"
+}
+
 # Notes: llama-server with its DLLs (the CUDA 12.4 build runs on any GPU the 528+ driver supports) and the CUDA runtime
 if ($Force -or -not (Test-Path "tools\llama\llama-server.exe")) {
     $base = "https://github.com/ggml-org/llama.cpp/releases/download/$LlamaBuild"
@@ -61,4 +68,4 @@ Get-Model "models\llm" "gemma-4-12b-it-qat-q4_0.gguf" "https://huggingface.co/go
 # System sound capture (the other participants of a call): built locally, nothing to download
 & (Join-Path $PSScriptRoot "build-loopback.ps1")
 
-Write-Host "Done: tools\whisper, tools\llama, tools\audio-loopback, models\whisper, models\llm"
+Write-Host "Done: tools\whisper, tools\llama, tools\audio-loopback, models\whisper, models\parakeet-tdt-0.6b-v3, models\llm"

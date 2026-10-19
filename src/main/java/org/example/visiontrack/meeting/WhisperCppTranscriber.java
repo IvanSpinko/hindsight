@@ -48,46 +48,57 @@ public final class WhisperCppTranscriber implements Transcriber {
                 && Files.isRegularFile(settings.model()) && Files.isRegularFile(settings.vadModel());
     }
 
+    /** Whether the voice activity detection tool and its model are installed (Parakeet needs them too). */
+    static boolean isVadInstalled(VisionTrackProperties.Whisper settings) {
+        return Files.isRegularFile(executable(settings, "whisper-vad-speech-segments")) && Files.isRegularFile(settings.vadModel());
+    }
+
     @Override
     public Result transcribe(List<Track> tracks, ProgressListener progress) throws IOException {
-        List<TranscriptSegment> segments = new ArrayList<>();
-        Set<String> languages = new LinkedHashSet<>();
         // The server starts first, so a missing GPU is reported before any other work is done
         try (Loaded loaded = startServer()) {
             // All pieces of speech of all tracks, so progress covers the whole job
-            List<PcmWav> audio = new ArrayList<>();
-            List<List<SpeechChunks.Span>> chunks = new ArrayList<>();
-            for (Track track : tracks) {
-                PcmWav wav = PcmWav.read(track.wav());
-                audio.add(wav);
-                chunks.add(SpeechChunks.plan(detectSpeech(track.wav()), wav.durationSeconds()));
-            }
-            int total = chunks.stream().mapToInt(List::size).sum();
-            log.info("Speech recognition: {} on {}, {} pieces of speech in {} track(s)", loaded.model(), loaded.backend(), total, tracks.size());
-            int done = 0;
-            for (int t = 0; t < tracks.size(); t++) {
-                Track track = tracks.get(t);
-                for (SpeechChunks.Span chunk : chunks.get(t)) {
-                    byte[] piece = audio.get(t).slice(chunk.start(), chunk.end());
-                    WhisperServer.Inference inference = loaded.server().transcribe(piece, "auto");
-                    String language = inference.mostLikely(List.of());
-                    if (language == null || !settings.languages().contains(language)) {
-                        // Detected a language we do not expect (Ukrainian for Russian, say): use the likeliest allowed one
-                        String allowed = inference.mostLikely(settings.languages());
-                        language = allowed != null ? allowed : settings.languages().getFirst();
-                        inference = loaded.server().transcribe(piece, language);
-                    }
-                    languages.add(language);
-                    segments.addAll(toSegments(inference, track.offsetSeconds() + chunk.start(), track.source(), language));
-                    progress.onProgress(++done / (double) total);
-                }
-            }
-            segments.sort(Comparator.comparingDouble(TranscriptSegment::start));
-            return new Result(segments, loaded.model(), loaded.backend(), List.copyOf(languages));
+            List<SpeechChunks.Piece> pieces = SpeechChunks.pieces(tracks, settings);
+            log.info("Speech recognition: {} on {}, {} pieces of speech in {} track(s)", loaded.model(), loaded.backend(), pieces.size(), tracks.size());
+            return recognise(loaded, pieces, progress);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Speech recognition interrupted", e);
         }
+    }
+
+    /** Recognises pieces another engine has already cut (Parakeet hands over the ones in Russian). */
+    Result transcribePieces(List<SpeechChunks.Piece> pieces, ProgressListener progress) throws IOException {
+        try (Loaded loaded = startServer()) {
+            log.info("Speech recognition: {} on {}, {} pieces of speech handed over", loaded.model(), loaded.backend(), pieces.size());
+            return recognise(loaded, pieces, progress);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Speech recognition interrupted", e);
+        }
+    }
+
+    private Result recognise(Loaded loaded, List<SpeechChunks.Piece> pieces, ProgressListener progress)
+            throws IOException, InterruptedException {
+        List<TranscriptSegment> segments = new ArrayList<>();
+        Set<String> languages = new LinkedHashSet<>();
+        int done = 0;
+        for (SpeechChunks.Piece piece : pieces) {
+            byte[] wav = piece.audio().slice(piece.span().start(), piece.span().end());
+            WhisperServer.Inference inference = loaded.server().transcribe(wav, "auto");
+            String language = inference.mostLikely(List.of());
+            if (language == null || !settings.languages().contains(language)) {
+                // Detected a language we do not expect (Ukrainian for Russian, say): use the likeliest allowed one
+                String allowed = inference.mostLikely(settings.languages());
+                language = allowed != null ? allowed : settings.languages().getFirst();
+                inference = loaded.server().transcribe(wav, language);
+            }
+            languages.add(language);
+            segments.addAll(toSegments(inference, piece.start(), piece.source(), language));
+            progress.onProgress(++done / (double) pieces.size());
+        }
+        segments.sort(Comparator.comparingDouble(TranscriptSegment::start));
+        return new Result(segments, loaded.model(), loaded.backend(), List.copyOf(languages));
     }
 
     /**
@@ -122,7 +133,8 @@ public final class WhisperCppTranscriber implements Transcriber {
         return Math.round(seconds * 100) / 100.0;
     }
 
-    private List<SpeechChunks.Span> detectSpeech(Path wav) throws IOException {
+    /** Silero VAD (whisper.cpp tool): where the speech is in a 16 kHz WAV file; also used for Parakeet. */
+    static List<SpeechChunks.Span> detectSpeech(VisionTrackProperties.Whisper settings, Path wav) throws IOException {
         List<String> command = List.of(executable(settings, "whisper-vad-speech-segments").toString(),
                 // No -ug: in whisper.cpp b5454 Silero VAD aborts on CUDA ("pre-allocated tensor in a buffer (CUDA0)
                 // that cannot run the operation"), so this small model stays on the CPU (seconds per hour of audio)

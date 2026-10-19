@@ -76,9 +76,21 @@ public record VisionTrackProperties(
             @Min(1) int maxRecordingMinutes,
             Path ffmpegDir,
             Path systemAudioHelper,
+            @NotNull SpeechEngine speechEngine,
+            @Valid @NotNull Parakeet parakeet,
             @Valid @NotNull Whisper whisper,
             @Valid @NotNull Notes notes
     ) {}
+
+    /** Which model turns meeting speech into text; Whisper is also the fallback when Parakeet is not installed. */
+    public enum SpeechEngine { PARAKEET, WHISPER }
+
+    /**
+     * NVIDIA Parakeet TDT 0.6B v3 in ONNX Runtime on CUDA: {@code directory} holds the ONNX export (nemo128.onnx,
+     * encoder-model.onnx with its .data file, decoder_joint-model.onnx, vocab.txt). Speech is found with the
+     * Whisper section's voice activity detection, and its {@code languages} label the segments.
+     */
+    public record Parakeet(@NotNull Path directory) {}
 
     /**
      * Meeting notes written by a local model with llama.cpp on CUDA: {@code directory} holds llama-server.exe and

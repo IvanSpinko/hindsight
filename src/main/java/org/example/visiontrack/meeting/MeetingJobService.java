@@ -6,6 +6,7 @@ import org.example.visiontrack.GpuRequiredException;
 import org.example.visiontrack.analysis.ProgressListener;
 import org.example.visiontrack.config.VisionTrackProperties;
 import org.example.visiontrack.detection.ObjectDetectorProvider;
+import org.example.visiontrack.detection.OnnxYoloDetector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -47,6 +48,9 @@ public class MeetingJobService {
 
     private final MeetingStore store;
     private final VisionTrackProperties.Whisper whisper;
+    private final VisionTrackProperties.SpeechEngine speechEngine;
+    private final VisionTrackProperties.Parakeet parakeet;
+    private final VisionTrackProperties.Model gpuLibraries;
     private final Path ffmpegDir;
     private volatile Ffmpeg ffmpeg;
     private final ObjectMapper json;
@@ -70,6 +74,9 @@ public class MeetingJobService {
         this.notion = notion;
         VisionTrackProperties.Meetings settings = properties.meetings();
         this.whisper = settings.whisper();
+        this.speechEngine = settings.speechEngine();
+        this.parakeet = settings.parakeet();
+        this.gpuLibraries = properties.model();
         this.ffmpegDir = settings.ffmpegDir();
         this.json = objectMapper;
         this.transcripts = new TranscriptWriter(objectMapper);
@@ -127,13 +134,13 @@ public class MeetingJobService {
                 .map(t -> new Transcriber.Track(folder.resolve(t.file()), t.startOffsetMillis() / 1000.0, t.kind()))
                 .toList();
         if (tracks.isEmpty()) return null;
-        if (!WhisperCppTranscriber.isInstalled(whisper)) {
+        Transcriber transcriber = transcriber(meeting.id(), folder);
+        if (transcriber == null) {
             String warning = "Speech recognition is not installed (" + whisper.directory() + "), the transcript was skipped";
             log.warn("Meeting {}: {}", meeting.id(), warning);
             store.find(meeting.id()).ifPresent(m -> store.save(m.withWarning(warning)));
             return null;
         }
-        Transcriber transcriber = new WhisperCppTranscriber(whisper, json, folder.resolve("logs"));
         Transcriber.Result recognised = transcriber.transcribe(tracks, progressSaver(meeting.id(), STEP_SPEECH));
         List<TranscriptSegment> withoutEchoes = EchoFilter.removeEchoes(recognised.segments());
         if (withoutEchoes.size() < recognised.segments().size()) {
@@ -143,6 +150,22 @@ public class MeetingJobService {
         Transcriber.Result result = new Transcriber.Result(withoutEchoes, recognised.model(), recognised.backend(), recognised.languages());
         transcripts.write(folder, meeting.title(), result);
         return new Meeting.Transcription(result.model(), result.backend(), result.languages(), result.segments().size());
+    }
+
+    /** The configured speech recognition, Whisper when Parakeet is not installed, or null when neither is. */
+    private Transcriber transcriber(String id, Path folder) {
+        WhisperCppTranscriber whisperCpp = WhisperCppTranscriber.isInstalled(whisper)
+                ? new WhisperCppTranscriber(whisper, json, folder.resolve("logs")) : null;
+        if (speechEngine == VisionTrackProperties.SpeechEngine.PARAKEET) {
+            if (ParakeetTranscriber.isInstalled(parakeet.directory(), whisper)) {
+                // Whisper, when installed, takes over the pieces in Russian, where Parakeet is weak
+                return new ParakeetTranscriber(parakeet.directory(), whisper,
+                        () -> OnnxYoloDetector.preloadNativeLibraries(gpuLibraries.nativeDir(), gpuLibraries.nativePreload()),
+                        whisperCpp);
+            }
+            log.warn("Meeting {}: Parakeet is not installed ({}), using Whisper", id, parakeet.directory());
+        }
+        return whisperCpp;
     }
 
     /**
