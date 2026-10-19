@@ -52,7 +52,7 @@ Without a CUDA-capable NVIDIA GPU the app still starts, but the heavy features a
 | Build only the system sound helper | `powershell -ExecutionPolicy Bypass -File packaging\build-loopback.ps1` |
 | Run | `java -jar target\visiontrack-object-detection-aws-1.0-SNAPSHOT.jar`, open http://localhost:8080 |
 | Run on another port, no browser | add `--server.port=18080 --visiontrack.open-browser=false` |
-| Desktop app (exe + bundled Java) | `powershell -ExecutionPolicy Bypass -File packaging\build-desktop.ps1` → `dist\Hindsight\` and `dist\Hindsight.zip` |
+| Desktop app (exe + bundled Java, meeting tools and models) | `powershell -ExecutionPolicy Bypass -File packaging\build-desktop.ps1` → `dist\Hindsight\` and `dist\Hindsight.zip` (~15 GB; `-NoMeetings` for the ~2.6 GB video-only app) |
 
 `get-models.ps1` downloads and installs:
 - whisper.cpp build `b5454` (CUDA 12.4) → `tools\whisper` (server, VAD tool, DLLs, ~1.1 GB);
@@ -440,8 +440,8 @@ with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call 
 
 ## 13. Known issues and limitations
 
-1. **The desktop build does not include the meetings module's programs and models** (`tools\`, `models\whisper`,
-   `models\llm`, the helper) and their paths; planned for stage 9.
+1. The full desktop build is ~15 GB, mostly the notes model; the CUDA DLLs are stored three times
+   (`app\cuda`, `tools\whisper`, `tools\llama`).
 2. Remote use is not supported: the server binds to 127.0.0.1 and every API answers requests from this computer
    only (403 otherwise), so the app cannot be shared on a local network.
 3. Video analysis jobs are kept in memory only: they disappear when the app restarts (meetings do not).
@@ -501,10 +501,9 @@ running app → commit → push.
 - Editing a meeting's title and date (useful for uploads).
 
 ### Stage 9: build for a friend
-- `build-desktop.ps1`: add `tools\` and `models\` (or download them on first start with progress), set the
-  meeting paths to `$APPDIR`, remove Linux natives from the jar, 7z archive.
-- Update `packaging\README.txt`: NVIDIA driver 528+, 12 GB VRAM recommended (8 GB: smaller notes model),
-  recording consent, how to upload, where meetings are stored.
+- Done: `build-desktop.ps1` ships `tools\` and the meeting models with `$APPDIR` paths; `packaging\README.txt`
+  covers the requirements, consent and where meetings are stored.
+- Still open: remove Linux natives from the jar, a 7z archive, download the models on first start instead.
 - One shared copy of the CUDA DLLs to save ~1.5 GB.
 
 ### Fixes worth doing before or alongside

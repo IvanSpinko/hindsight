@@ -35,6 +35,9 @@ java -jar target/visiontrack-object-detection-aws-1.0-SNAPSHOT.jar
 `get-models.ps1` downloads the meeting models (~13 GB); video analysis works without them. Open
 http://localhost:8080 and drop in a video. Settings live in `src/main/resources/application.yml`.
 
+`packaging\build-desktop.ps1` builds a portable app, `dist\Hindsight\Hindsight.exe`, with Java, CUDA and all the
+models inside (~15 GB; `-NoMeetings` leaves out the meeting models).
+
 The project started as VisionTrack: the Java package, the `visiontrack.*` settings and the data folders
 (`Documents\VisionTrack`, `%LOCALAPPDATA%\VisionTrack`) still use that name.
 
