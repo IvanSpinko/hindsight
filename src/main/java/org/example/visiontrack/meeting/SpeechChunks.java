@@ -1,5 +1,8 @@
 package org.example.visiontrack.meeting;
 
+import org.example.visiontrack.config.VisionTrackProperties;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -30,9 +33,29 @@ final class SpeechChunks {
     /** Audio kept around the speech so first and last syllables are not clipped. */
     static final double PADDING = 0.2;
 
+    /** A piece to recognise: its span in the track's audio, and where that track sits on the meeting timeline. */
+    record Piece(PcmWav audio, Span span, double offsetSeconds, String source) {
+        /** Where the piece starts on the meeting timeline. */
+        double start() {
+            return offsetSeconds + span.start();
+        }
+    }
+
     private static final Pattern VAD_SEGMENT = Pattern.compile("start = ([\\d.]+), end = ([\\d.]+)");
 
     private SpeechChunks() {}
+
+    /** Finds the speech in every track (Silero VAD) and cuts it into pieces, track by track. */
+    static List<Piece> pieces(List<Transcriber.Track> tracks, VisionTrackProperties.Whisper vad) throws IOException {
+        List<Piece> pieces = new ArrayList<>();
+        for (Transcriber.Track track : tracks) {
+            PcmWav wav = PcmWav.read(track.wav());
+            for (Span span : plan(WhisperCppTranscriber.detectSpeech(vad, track.wav()), wav.durationSeconds())) {
+                pieces.add(new Piece(wav, span, track.offsetSeconds(), track.source()));
+            }
+        }
+        return pieces;
+    }
 
     /** Parses whisper-vad-speech-segments output (times in centiseconds). */
     static List<Span> parseVad(String output) {

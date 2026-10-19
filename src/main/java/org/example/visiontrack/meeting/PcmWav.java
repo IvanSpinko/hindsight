@@ -62,6 +62,16 @@ final class PcmWav {
         return samples.length / 2.0 / sampleRate;
     }
 
+    /** The samples between {@code start} and {@code end} seconds scaled to -1..1, as speech models take them. */
+    float[] floats(double start, double end) {
+        int from = Math.max(0, (int) (start * sampleRate));
+        int to = Math.min(samples.length / 2, (int) Math.ceil(end * sampleRate));
+        float[] out = new float[Math.max(0, to - from)];
+        ByteBuffer b = ByteBuffer.wrap(samples).order(ByteOrder.LITTLE_ENDIAN);
+        for (int i = 0; i < out.length; i++) out[i] = b.getShort((from + i) * 2) / 32768f;
+        return out;
+    }
+
     /** The audio between {@code start} and {@code end} seconds as a complete WAV file. */
     byte[] slice(double start, double end) {
         int from = Math.max(0, (int) (start * sampleRate)) * 2;

@@ -86,8 +86,14 @@ visiontrack:
     max-recording-minutes: 360
     # Captures what the computer plays: the other participants of a call (packaging/build-loopback.ps1)
     system-audio-helper: tools/audio-loopback/audio-loopback.exe
+    # Speech recognition engine: parakeet (NVIDIA Parakeet TDT 0.6B v3, most accurate on English, 25 European
+    # languages) or whisper (whisper.cpp, ~100 languages). Parakeet falls back to Whisper when it is not installed.
+    speech-engine: parakeet
+    parakeet:
+      directory: models/parakeet-tdt-0.6b-v3
     # Speech recognition (whisper.cpp on CUDA, see packaging/get-models.ps1). Each piece of speech gets its
-    # own language, limited to these; the first one is the fallback.
+    # own language, limited to these; the first one is the fallback. Parakeet uses the voice activity detection
+    # from here and these languages to label its segments.
     whisper:
       directory: tools/whisper
       model: models/whisper/ggml-large-v3-turbo-q8_0.bin

@@ -98,7 +98,8 @@ public final class OnnxYoloDetector implements AutoCloseable {
         return detector;
     }
 
-    private static void preloadNativeLibraries(Path nativeDir, List<Path> libraries) {
+    /** Loads the CUDA, cuDNN and VC++ libraries ONNX Runtime needs; also used by speech recognition (Parakeet). */
+    public static void preloadNativeLibraries(Path nativeDir, List<Path> libraries) {
         if (!System.getProperty("os.name", "").toLowerCase().startsWith("windows")) return;
 
         List<Path> pending = new ArrayList<>();
