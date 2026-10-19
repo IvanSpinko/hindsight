@@ -277,6 +277,29 @@
   .badge.failed { background: var(--error-soft); color: var(--error); }
   .badge.recording { background: var(--rec); color: #fff; }
 
+  /* settings */
+  #settings-mode .form { max-width: 560px; }
+  .form .hint { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+  .form .check { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; color: var(--text); font-size: 14px; font-weight: 500; cursor: pointer; }
+  .form .check input { width: auto; margin-top: 4px; flex: none; }
+  .form .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form .pair > div { display: grid; gap: 4px; }
+  .form .pair label { margin-top: 8px; }
+  @media (max-width: 520px) { .form .pair { grid-template-columns: 1fr; } }
+  input[type=number], input[type=password], input[type=datetime-local] { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); }
+  .save-row { margin-top: 18px; }
+  .saved { color: var(--ok); font-size: 14px; font-weight: 500; }
+  .meter { height: 10px; flex: 1; min-width: 120px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .meter > div { height: 100%; width: 0; background: var(--ok); border-radius: 99px; transition: width .08s linear; }
+  .mic-test { margin-top: 8px; }
+  .gpu { display: grid; gap: 4px; margin-bottom: 10px; }
+  .gpu strong { font-size: 15px; }
+  .gpu .progress { margin: 6px 0 2px; max-width: 420px; }
+  .status-line { display: flex; gap: 8px; align-items: center; font-size: 14px; margin-bottom: 4px; }
+  .entry .edit-form { margin-top: 10px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; max-width: 620px; }
+  .entry .edit-form .form { gap: 2px; }
+  @media (max-width: 520px) { .entry .edit-form { grid-template-columns: 1fr; } }
+
   /* toasts */
   #toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 30; max-width: calc(100vw - 32px); }
   .toast { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 12px; padding: 10px 14px; box-shadow: var(--menu-shadow); width: 320px; max-width: 100%; animation: toast-in .2s ease-out; }
@@ -300,6 +323,7 @@
         <button class="tab active" data-mode="file">Video file</button>
         <button class="tab" data-mode="live">Live camera</button>
         <button class="tab" data-mode="meetings">Meetings</button>
+        <button class="tab" data-mode="settings">Settings</button>
       </nav>
       <span class="spacer"></span>
       <button class="secondary" id="theme-toggle" type="button"></button>
@@ -381,7 +405,7 @@
   <section class="card" id="history" hidden>
     <div class="list-head">
       <h2>Recent videos<span class="count" id="h-count"></span></h2>
-      <span class="muted">Until the app is closed</span>
+      <span class="muted">Kept on this computer</span>
     </div>
     <div id="h-list"></div>
   </section>
@@ -456,6 +480,96 @@
       <div id="m-list"></div>
       <p class="muted" id="m-empty" hidden>No meetings yet: record one or upload a recording.</p>
       <p class="muted" id="m-nomatch" hidden>No meetings match the search.</p>
+    </div>
+  </section>
+
+  <section id="settings-mode" hidden>
+    <div class="card">
+      <h2>Meetings</h2>
+      <div class="form" id="s-meetings">
+        <label for="s-dir">Meetings folder</label>
+        <input type="text" id="s-dir" spellcheck="false">
+        <p class="hint">New meetings go here. Meetings already recorded stay in the old folder and are no longer listed: move their folders over to see them again.</p>
+        <div class="pair">
+          <div>
+            <label for="s-monitor">Screen to record</label>
+            <select id="s-monitor"></select>
+          </div>
+          <div>
+            <label for="s-mic">Microphone</label>
+            <select id="s-mic"></select>
+          </div>
+        </div>
+        <div class="row mic-test">
+          <button class="secondary small" id="s-mic-test" type="button">Test microphone</button>
+          <div class="meter" id="s-meter" hidden><div></div></div>
+          <span class="muted" id="s-mic-note"></span>
+        </div>
+        <div class="pair">
+          <div>
+            <label for="s-fps">Screen frames per second</label>
+            <input type="number" id="s-fps" min="1" max="60" step="1">
+          </div>
+          <div>
+            <label for="s-quality">Screen quality</label>
+            <select id="s-quality">
+              <option value="SMALL">Smaller files</option>
+              <option value="STANDARD">Standard</option>
+              <option value="HIGH">Sharper text, larger files</option>
+            </select>
+          </div>
+        </div>
+        <p class="hint">Fewer frames per second make smaller files; 5–10 is enough for slides and shared screens.</p>
+        <div class="pair">
+          <div>
+            <label for="s-engine">Speech recognition</label>
+            <select id="s-engine">
+              <option value="PARAKEET">Parakeet (best for English)</option>
+              <option value="WHISPER">Whisper (many languages)</option>
+            </select>
+          </div>
+          <div>
+            <label for="s-lang">Notes language</label>
+            <select id="s-lang"></select>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="s-delete-audio"> <span>Delete the separate speech audio after processing<br><span class="hint">The recording, transcript and notes are kept; the speech can no longer be recognised again.</span></span></label>
+      </div>
+      <div class="row save-row">
+        <button id="s-save-meetings" type="button">Save</button>
+        <button class="secondary" id="s-reset-meetings" type="button">Reset to defaults</button>
+        <span class="saved" id="s-meetings-saved" hidden>Saved</span>
+      </div>
+      <div id="s-meetings-error" class="error" hidden></div>
+    </div>
+
+    <div class="card">
+      <h2>Notion</h2>
+      <div class="status-line" id="s-notion-status"></div>
+      <div class="form">
+        <label for="s-token">Integration token</label>
+        <input type="password" id="s-token" autocomplete="off" spellcheck="false">
+        <p class="hint">Create an internal integration at notion.so/profile/integrations and paste its secret here. It stays on this computer. <button class="link" id="s-token-remove" type="button" hidden>Remove the saved token</button></p>
+        <label for="s-page">Page for the "Meetings" database</label>
+        <input type="text" id="s-page" placeholder="https://www.notion.so/…" spellcheck="false">
+        <p class="hint">Open the page in Notion, add the integration under ••• → Connections, then paste the page link here.</p>
+        <label class="check"><input type="checkbox" id="s-auto"> <span>Send the notes to Notion when a meeting is processed</span></label>
+      </div>
+      <div class="row save-row">
+        <button id="s-save-notion" type="button">Save</button>
+        <span class="saved" id="s-notion-saved" hidden>Saved</span>
+      </div>
+      <div id="s-notion-error" class="error" hidden></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Graphics card</h2>
+        <button class="icon" id="s-gpu-refresh" type="button" title="Check again" aria-label="Check again"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+      </div>
+      <div id="s-gpu"><span class="muted">Checking…</span></div>
+      <p class="hint muted">The notes model needs several GB of free video memory: close games and other AI apps if it is short.</p>
+      <p class="path" id="s-file"></p>
     </div>
   </section>
 </main>
@@ -1245,7 +1359,8 @@ window.actionMenu = (() => {
   const SUBTITLES = {
     file: 'Find out which objects appear in a video and when.',
     live: 'Point the camera at things to recognise them live.',
-    meetings: 'Record an online meeting: screen and microphone.'
+    meetings: 'Record an online meeting: screen and microphone.',
+    settings: 'Choose how meetings are recorded and where the notes go.'
   };
   document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
     const mode = tab.dataset.mode;
@@ -1253,6 +1368,7 @@ window.actionMenu = (() => {
     $('file-mode').hidden = mode !== 'file';
     $('live-mode').hidden = mode !== 'live';
     $('meetings-mode').hidden = mode !== 'meetings';
+    $('settings-mode').hidden = mode !== 'settings';
     $('subtitle').textContent = SUBTITLES[mode];
     document.body.classList.toggle('wide', mode === 'meetings'
       || (mode === 'file' && $('file-mode').classList.contains('has-history')));
@@ -1478,6 +1594,11 @@ window.actionMenu = (() => {
       $('m-monitor').replaceChildren(...devices.monitors.map(m =>
         new Option(m.width ? `${m.name} · ${m.width}×${m.height}` : m.name, m.index)));
       $('m-mic').replaceChildren(...devices.microphones.map(name => new Option(name, name)));
+      try {
+        const chosen = (await api('/api/settings')).meetings;
+        if (chosen.monitor != null && devices.monitors.some(m => m.index === chosen.monitor)) $('m-monitor').value = String(chosen.monitor);
+        if (chosen.microphone && devices.microphones.includes(chosen.microphone)) $('m-mic').value = chosen.microphone;
+      } catch {}
       const noMic = devices.microphones.length === 0;
       // What will be in the recording, checked before it starts: above all, whether the other side is heard
       showReadiness([
@@ -1626,6 +1747,8 @@ window.actionMenu = (() => {
   const textCache = new Map();     // 'notes:<id>' / 'transcript:<id>' -> Markdown text
   const lastStatus = new Map();    // meeting id -> status at the previous refresh
   const lastNotion = new Map();    // meeting id -> Notion export state at the previous refresh
+  const editing = new Set();       // meetings whose title and date are being edited
+  const editors = new Map();       // meeting id -> edit form, reused so typing survives the refresh
   document.addEventListener('menuclose', () => { if (listWaiting) { listWaiting = false; renderList(); } });
 
   // Drops what was loaded for a meeting, e.g. after it was processed again
@@ -1693,6 +1816,9 @@ window.actionMenu = (() => {
     const side = el('span', 'side');
     side.append(el('span', 'when', duration ? `${time} · ${humanLength(duration)}` : time));
     const items = [];
+    if (['RECORDED', 'READY', 'FAILED'].includes(meeting.status) && meeting.notion?.state !== 'EXPORTING') {
+      items.push({ label: 'Rename or change date…', onClick: () => { editing.add(id); renderList(); } });
+    }
     if (folder) {
       items.push({ label: 'Open folder', onClick: () => api(`/api/meetings/${id}/open-folder`, { method: 'POST' }).catch(e => showError(e.message)) });
     }
@@ -1713,6 +1839,7 @@ window.actionMenu = (() => {
     if (items.length) side.append(actionMenu.dots(items, 'Meeting actions'));
     head.append(title, side);
     div.append(head);
+    if (editing.has(id)) div.append(editorFor(meeting));
 
     // One line with what came out of it; problems are counted here and listed on request
     const t = meeting.transcription, n = meeting.notes;
@@ -1820,12 +1947,9 @@ window.actionMenu = (() => {
       return;
     }
     if (!status.tokenSet || !status.targetSet) {
-      alert('Notion is not set up yet.\n\n' +
-        '1. Create an internal integration at notion.so/profile/integrations and copy its token.\n' +
-        '2. In Notion, open the page where the "Meetings" database should go: ••• → Connections → add the integration.\n' +
-        `3. Put both into ${status.settingsFile}:\n\n` +
-        '{\n  "notion": {\n    "token": "<the token>",\n    "parentPageId": "<link of that page>"\n  }\n}\n\n' +
-        'Then send the meeting again. The token stays on this computer.');
+      if (confirm('Notion is not set up yet.\n\nOpen Settings to add the integration token and the page for the meetings?')) {
+        document.querySelector('.tab[data-mode="settings"]').click();
+      }
       return;
     }
     if (!retry && meeting.notion?.pageId &&
@@ -1837,6 +1961,53 @@ window.actionMenu = (() => {
       showError(e.message);
     }
     loadMeetings();
+  }
+
+  // Title and start time of a meeting
+  function editorFor(meeting) {
+    const id = meeting.id;
+    if (editors.has(id)) return editors.get(id);
+    const form = el('form', 'edit-form');
+    const fields = el('div', 'form');
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.maxLength = 200;
+    titleInput.value = meeting.title;
+    titleInput.setAttribute('aria-label', 'Title');
+    const when = document.createElement('input');
+    when.type = 'datetime-local';
+    when.setAttribute('aria-label', 'Start date and time');
+    const start = new Date(meeting.startedAt);
+    when.value = new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    const initial = when.value;
+    fields.append(titleInput, when);
+    const buttons = el('div', 'row');
+    const save = el('button', 'small', 'Save');
+    save.type = 'submit';
+    const cancel = el('button', 'secondary small', 'Cancel');
+    cancel.type = 'button';
+    buttons.append(save, cancel);
+    form.append(fields, buttons);
+    const close = () => { editing.delete(id); editors.delete(id); renderList(); };
+    cancel.addEventListener('click', close);
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const body = { title: titleInput.value.trim() || null, startedAt: when.value && when.value !== initial ? new Date(when.value).toISOString() : null };
+      save.disabled = true;
+      try {
+        await api(`/api/meetings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        forget(id);
+        hideError();
+        close();
+        loadMeetings();
+      } catch (err) {
+        save.disabled = false;
+        showError(err.message);
+      }
+    });
+    editors.set(id, form);
+    setTimeout(() => titleInput.focus());
+    return form;
   }
 
   async function deleteMeeting(meeting) {
@@ -1975,6 +2146,228 @@ window.actionMenu = (() => {
     const s = Math.max(0, Math.floor(seconds));
     return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(n => String(n).padStart(2, '0')).join(':');
   }
+})();
+</script>
+
+<script>
+// Settings: meetings, Notion and the graphics card
+(() => {
+  const $ = id => document.getElementById(id);
+  let loaded = false, current = null, mic = null, devices = null;
+
+  document.addEventListener('modechange', e => {
+    if (e.detail === 'settings') { load(); if (!loaded) { loaded = true; loadGpu(); } }
+    else stopMicTest();
+  });
+
+  async function load() {
+    try {
+      current = await api('/api/settings');
+      fillMeetings(current.meetings, current);
+      fillNotion(current.notion);
+      $('s-file').textContent = `Saved in ${current.file}`;
+    } catch (e) {
+      show('s-meetings-error', e.message);
+      return;
+    }
+    // Finding the devices takes a few seconds: their lists are filled in later
+    if (!devices) {
+      try {
+        devices = await api('/api/meetings/devices');
+        fillDevices(current.meetings);
+      } catch {}
+    }
+  }
+
+  function fillMeetings(m, settings) {
+    $('s-dir').value = m.directory;
+    $('s-dir').placeholder = settings.defaults.directory;
+    $('s-fps').value = m.screenFps;
+    $('s-quality').value = m.screenQuality;
+    $('s-engine').value = m.speechEngine;
+    const names = new Intl.DisplayNames(['en'], { type: 'language' });
+    $('s-lang').replaceChildren(new Option('Same as the speech', ''),
+      ...settings.languages.map(code => new Option(names.of(code) || code, code)));
+    $('s-lang').value = m.notesLanguage || '';
+    $('s-delete-audio').checked = m.deleteSpeechAudio;
+    fillDevices(m);
+  }
+
+  function fillDevices(m) {
+    const monitors = devices?.monitors || [];
+    $('s-monitor').replaceChildren(new Option('First screen', ''),
+      ...monitors.map(d => new Option(d.width ? `${d.name} · ${d.width}×${d.height}` : d.name, d.index)));
+    if (m.monitor != null && !devices) $('s-monitor').append(new Option(`Monitor ${m.monitor + 1}`, m.monitor));
+    $('s-monitor').value = m.monitor != null && (!devices || monitors.some(d => d.index === m.monitor)) ? String(m.monitor) : '';
+    const mics = devices?.microphones || [];
+    $('s-mic').replaceChildren(new Option('First microphone', ''), ...mics.map(name => new Option(name, name)));
+    // Keep a saved microphone that is not connected now
+    if (m.microphone && !mics.includes(m.microphone)) {
+      $('s-mic').append(new Option(devices ? `${m.microphone} (not connected)` : m.microphone, m.microphone));
+    }
+    $('s-mic').value = m.microphone || '';
+  }
+
+  function fillNotion(n) {
+    const status = $('s-notion-status');
+    const ready = n.tokenSet && n.parentPageId;
+    status.replaceChildren(el('span', `badge ${ready ? 'ready' : ''}`, ready ? 'Set up' : 'Not set up'),
+      el('span', 'muted', n.databaseSet ? 'The Meetings database exists' : ready ? 'The Meetings database is created with the first meeting sent' : ''));
+    $('s-token').value = '';
+    $('s-token').placeholder = n.tokenSet ? 'Saved · paste a new one to replace it' : 'secret_… or ntn_…';
+    $('s-token-remove').hidden = !n.tokenSet;
+    $('s-page').value = n.parentPageId || '';
+    $('s-auto').checked = n.autoExport;
+  }
+
+  $('s-save-meetings').addEventListener('click', () => saveMeetings(false));
+  $('s-reset-meetings').addEventListener('click', () => saveMeetings(true));
+
+  async function saveMeetings(reset) {
+    hide('s-meetings-error');
+    const d = current?.defaults;
+    const fps = Number($('s-fps').value);
+    // Default values are not saved, so application.yml still applies
+    const body = reset ? {} : {
+      directory: $('s-dir').value.trim() && $('s-dir').value.trim() !== d.directory ? $('s-dir').value.trim() : null,
+      screenFps: fps && fps !== d.screenFps ? fps : null,
+      screenQuality: $('s-quality').value === 'STANDARD' ? null : $('s-quality').value,
+      speechEngine: $('s-engine').value === d.speechEngine ? null : $('s-engine').value,
+      notesLanguage: $('s-lang').value || null,
+      deleteSpeechAudio: $('s-delete-audio').checked || null,
+      microphone: $('s-mic').value || null,
+      monitor: $('s-monitor').value === '' ? null : Number($('s-monitor').value)
+    };
+    await save('/api/settings/meetings', body, 's-save-meetings', 's-meetings-saved', 's-meetings-error');
+  }
+
+  $('s-save-notion').addEventListener('click', () => saveNotion($('s-token').value.trim() || null));
+  $('s-token-remove').addEventListener('click', () => {
+    if (confirm('Remove the saved Notion token? Meetings can no longer be sent until a new one is added.')) saveNotion('');
+  });
+
+  async function saveNotion(token) {
+    hide('s-notion-error');
+    const body = { token, parentPageId: $('s-page').value.trim() || null, autoExport: $('s-auto').checked };
+    await save('/api/settings/notion', body, 's-save-notion', 's-notion-saved', 's-notion-error');
+  }
+
+  async function save(url, body, buttonId, savedId, errorId) {
+    $(buttonId).disabled = true;
+    try {
+      const settings = await api(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      current = settings;
+      fillNotion(settings.notion);
+      if (url.endsWith('/meetings')) await load();
+      $(savedId).hidden = false;
+      setTimeout(() => { $(savedId).hidden = true; }, 2500);
+    } catch (e) {
+      show(errorId, e.message);
+    } finally {
+      $(buttonId).disabled = false;
+    }
+  }
+
+  // Graphics card from nvidia-smi
+  $('s-gpu-refresh').addEventListener('click', loadGpu);
+
+  async function loadGpu() {
+    const box = $('s-gpu');
+    box.replaceChildren(el('span', 'muted', 'Checking…'));
+    try {
+      const status = await api('/api/settings/gpu');
+      if (!status.gpus.length) {
+        box.replaceChildren(el('div', 'm-msg err', `${status.problem}. Hindsight needs an NVIDIA graphics card.`));
+        return;
+      }
+      box.replaceChildren(...status.gpus.map(g => {
+        const div = el('div', 'gpu');
+        const used = g.totalMib - g.freeMib;
+        div.append(el('strong', '', g.name));
+        const bar = el('div', 'progress');
+        const fill = document.createElement('div');
+        fill.style.width = `${Math.round(used / g.totalMib * 100)}%`;
+        bar.append(fill);
+        div.append(bar, el('span', 'muted', `${gb(g.freeMib)} GB free of ${gb(g.totalMib)} GB · driver ${g.driver}`));
+        return div;
+      }));
+    } catch (e) {
+      box.replaceChildren(el('div', 'm-msg err', e.message));
+    }
+  }
+  const gb = mib => (mib / 1024).toFixed(1);
+
+  // Microphone level meter in the browser
+  $('s-mic-test').addEventListener('click', () => mic ? stopMicTest() : startMicTest());
+
+  async function startMicTest() {
+    $('s-mic-note').textContent = '';
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      $('s-mic-note').textContent = 'The browser may not use the microphone: allow it in the address bar.';
+      return;
+    }
+    const wanted = $('s-mic').value || $('s-mic').options[1]?.value || '';
+    const norm = s => s.toLowerCase().replace(/^(default|communications) - /, '').trim();
+    const inputs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput' && !/^(default|communications)$/.test(d.deviceId));
+    const match = wanted && inputs.find(d => norm(d.label) === norm(wanted) || norm(d.label).startsWith(norm(wanted)) || norm(wanted).startsWith(norm(d.label)));
+    if (match && stream.getAudioTracks()[0].getSettings().deviceId !== match.deviceId) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: match.deviceId } } });
+    }
+    if (!match) $('s-mic-note').textContent = 'Showing the default microphone: the chosen one was not found in the browser.';
+    const context = new AudioContext();
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 1024;
+    context.createMediaStreamSource(stream).connect(analyser);
+    const samples = new Float32Array(analyser.fftSize);
+    const fill = $('s-meter').firstElementChild;
+    $('s-meter').hidden = false;
+    $('s-mic-test').textContent = 'Stop test';
+    mic = { stream, context, frame: 0, until: Date.now() + 30000 };
+    const draw = () => {
+      if (!mic) return;
+      if (Date.now() > mic.until) return stopMicTest();
+      analyser.getFloatTimeDomainData(samples);
+      let sum = 0;
+      for (const v of samples) sum += v * v;
+      const db = 20 * Math.log10(Math.sqrt(sum / samples.length) || 1e-8);
+      fill.style.width = `${Math.max(0, Math.min(100, (db + 60) / 60 * 100))}%`;
+      mic.frame = requestAnimationFrame(draw);
+    };
+    draw();
+  }
+
+  function stopMicTest() {
+    if (!mic) return;
+    cancelAnimationFrame(mic.frame);
+    mic.stream.getTracks().forEach(t => t.stop());
+    mic.context.close();
+    mic = null;
+    $('s-meter').hidden = true;
+    $('s-mic-test').textContent = 'Test microphone';
+  }
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  async function api(url, options) {
+    const res = await fetch(url, options);
+    const text = await res.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch {}
+    if (!res.ok) throw new Error(data?.detail || data?.message || `Request failed (${res.status})`);
+    return data;
+  }
+
+  function show(id, message) { $(id).textContent = message; $(id).hidden = false; }
+  function hide(id) { $(id).hidden = true; }
 })();
 </script>
 </body>

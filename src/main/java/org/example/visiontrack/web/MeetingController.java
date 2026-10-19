@@ -15,6 +15,7 @@ import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -38,6 +40,11 @@ import java.util.NoSuchElementException;
 public class MeetingController {
 
     public record MeetingResponse(Meeting meeting, String folder) {}
+
+    /** A null field is left as it is. */
+    public record MeetingEdit(String title, Instant startedAt) {}
+
+    private static final int MAX_TITLE_LENGTH = 200;
 
     private final MeetingRecorder recorder;
     private final MeetingStore store;
@@ -84,6 +91,22 @@ public class MeetingController {
     @GetMapping("/{id}")
     public ResponseEntity<MeetingResponse> get(@PathVariable("id") String id) {
         return store.find(id).map(m -> ResponseEntity.ok(response(m))).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PatchMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public MeetingResponse edit(@PathVariable("id") String id, @RequestBody MeetingEdit request) throws IOException {
+        Meeting meeting = store.find(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found"));
+        refuseWhileSending(meeting);
+        if (request.title() != null && request.title().strip().length() > MAX_TITLE_LENGTH) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The title is longer than " + MAX_TITLE_LENGTH + " characters");
+        }
+        try {
+            return response(jobs.edit(id, request.title(), request.startedAt()));
+        } catch (NoSuchElementException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found");
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        }
     }
 
     /** Runs the processing (speech, notes) again, e.g. after it failed or with new settings. */

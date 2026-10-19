@@ -98,7 +98,7 @@ Design rules that hold everywhere:
   (ONNX Runtime). A crash or a stuck process does not take the app down, and the VRAM is freed by stopping it.
 - **One job at a time** per area (one video analysis worker, one meeting processing thread), so two models never
   compete for the GPU.
-- Folders are the database for meetings (`meeting.json` per folder); video analysis jobs live in memory only.
+- Folders are the database for meetings (`meeting.json` per folder); video analyses are one JSON file each (`data/analyses`, in the desktop app `%LOCALAPPDATA%\VisionTracknalyses`).
 - All project files are English; the UI is English.
 
 ---
@@ -444,21 +444,21 @@ with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call 
    (`app\cuda`, `tools\whisper`, `tools\llama`).
 2. Remote use is not supported: the server binds to 127.0.0.1 and every API answers requests from this computer
    only (403 otherwise), so the app cannot be shared on a local network.
-3. Video analysis jobs are kept in memory only: they disappear when the app restarts (meetings do not).
-4. Rebuilding `target\*.jar` while the app runs from it breaks the running app.
-5. Silero VAD runs on the CPU (whisper.cpp bug with `-ug`); seconds per hour of audio.
-6. System sound follows the default output device chosen at the start; switching speakers/headphones during a call
+3. Rebuilding `target\*.jar` while the app runs from it breaks the running app.
+4. Silero VAD runs on the CPU (whisper.cpp bug with `-ug`); seconds per hour of audio.
+5. System sound follows the default output device chosen at the start; switching speakers/headphones during a call
    is not followed. Devices with formats other than 32-bit float or 16-bit PCM are not supported.
-7. No speaker separation inside a track: all other participants are "Other participants", everyone in an upload is
+6. No speaker separation inside a track: all other participants are "Other participants", everyone in an upload is
    "Participants". Names come only from what is said.
-8. Notes quality limits of a 12B local model: vague deadlines ("by the end of next week") may become a date, an
+7. Notes quality limits of a 12B local model: vague deadlines ("by the end of next week") may become a date, an
    action item can be missed on one run and found on another; the notes footer asks to check names and dates.
-9. Uploaded recordings get the upload time as their date.
-10. Track offsets come from process start times; the screen starts ~1 s after the microphone (fine for watching).
-11. Disk use: screen up to ~3.6 GB per hour with constant motion; audio tracks are kept (no "delete audio after
+8. Uploaded recordings get the upload time as their date until it is changed ("Rename or change date…").
+   Changing the meetings folder in Settings does not move the meetings already recorded.
+9. Track offsets come from process start times; the screen starts ~1 s after the microphone (fine for watching).
+10. Disk use: screen up to ~3.6 GB per hour with constant motion; audio tracks are kept (no "delete audio after
     processing" setting yet). CUDA DLLs are duplicated in `tools\whisper`, `tools\llama` and `app\cuda` (~2.5 GB).
-12. YOLO-World/YOLO11 weights are AGPL-3.0 (Ultralytics): matters if the app is published or shared beyond personal use.
-13. Real calls (Zoom, Teams, Telegram) in Russian and English have not been tested; only TTS voices, a speaker and
+11. YOLO-World/YOLO11 weights are AGPL-3.0 (Ultralytics): matters if the app is published or shared beyond personal use.
+12. Real calls (Zoom, Teams, Telegram) in Russian and English have not been tested; only TTS voices, a speaker and
     hand-written transcripts.
 
 ---
@@ -495,6 +495,12 @@ running app → commit → push.
   option. Tests against a stub HTTP server.
 
 ### Stage 8: Settings tab
+**Done (branch `settings-tab`):** meetings folder, default screen and microphone with a level meter (in the browser),
+screen fps and quality, speech engine, notes language, "delete speech audio after processing", Notion token / page /
+auto-send, GPU name and free VRAM (nvidia-smi); renaming a meeting and changing its date; video analyses kept across
+restarts. Still open from the plan: a level meter for the system sound, the list of installed models.
+
+Planned:
 - Devices with a level meter (microphone and system sound), default monitor, headphones hint.
 - Notion token and database; the notes language (auto / Russian / English); screen fps and quality;
   "delete audio after processing"; folder for meetings; shows GPU name, free VRAM and installed models.

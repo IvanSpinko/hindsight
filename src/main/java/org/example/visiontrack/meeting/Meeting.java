@@ -2,6 +2,7 @@ package org.example.visiontrack.meeting;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,6 +74,13 @@ public record Meeting(
         double duration = newTracks.stream().mapToDouble(Track::durationSeconds).max().orElse(0);
         Instant end = startedAt.plusMillis(Math.round(duration * 1000));
         return new Meeting(id, title, status, startedAt, end, screenCapture, microphone, newTracks, capturePids, warnings,
+                error, processing, transcription, notes, notion);
+    }
+
+    /** Another title or start time; the end moves with the start. */
+    Meeting edited(String newTitle, Instant newStart) {
+        Instant end = stoppedAt == null ? null : stoppedAt.plus(Duration.between(startedAt, newStart));
+        return new Meeting(id, newTitle, status, newStart, end, screenCapture, microphone, tracks, capturePids, warnings,
                 error, processing, transcription, notes, notion);
     }
 

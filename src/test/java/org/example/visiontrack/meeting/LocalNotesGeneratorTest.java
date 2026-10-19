@@ -95,6 +95,17 @@ class LocalNotesGeneratorTest {
     }
 
     @Test
+    void languageChosenInSettingsWinsOverTheSpeech() {
+        List<TranscriptSegment> russian = List.of(new TranscriptSegment(0, 5, "mic", "ru", "the meeting itself"));
+        NotesGenerator.Input input = new NotesGenerator.Input("Weekly", ZonedDateTime.of(2026, 10, 14, 10, 0, 0, 0, ZoneOffset.UTC),
+                5, russian, "en");
+
+        assertThat(NotesPrompt.merge(input, "[]")).contains("Write the notes in English.");
+        assertThat(NotesPrompt.languageName("ru")).isEqualTo("Russian");
+        assertThat(NotesPrompt.languageName("zz")).isEqualTo("English");
+    }
+
+    @Test
     void speakerLabelsAreNotParticipants() throws IOException {
         model.answer = NOTES.replace("[\"Anna\"]", "[\"Me\", \"Anna\", \"Other participants\"]");
 

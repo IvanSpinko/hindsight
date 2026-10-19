@@ -18,6 +18,8 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -56,8 +58,47 @@ public class SettingsService {
         }
     }
 
+    /** Screen video compression: smaller files or sharper text. */
+    public enum ScreenQuality { SMALL, STANDARD, HIGH }
+
+    /** Meeting choices from the Settings tab; a null value falls back to application.yml. */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record SettingsFile(NotionSettings notion) {}
+    public record MeetingPreferences(String directory, Double screenFps, ScreenQuality screenQuality,
+                                     VisionTrackProperties.SpeechEngine speechEngine, String notesLanguage,
+                                     Boolean deleteSpeechAudio, String microphone, Integer monitor) {
+
+        public static final MeetingPreferences NONE = new MeetingPreferences(null, null, null, null, null, null, null, null);
+
+        public MeetingPreferences {
+            notesLanguage = blankToNull(notesLanguage);
+            if (notesLanguage != null) notesLanguage = notesLanguage.toLowerCase(Locale.ROOT);
+            directory = blankToNull(directory);
+            microphone = blankToNull(microphone);
+        }
+
+        public Path directory(Path fallback) {
+            return directory == null ? fallback : Path.of(directory);
+        }
+
+        public double screenFps(double fallback) {
+            return screenFps == null ? fallback : screenFps;
+        }
+
+        public ScreenQuality screenQualityOrDefault() {
+            return screenQuality == null ? ScreenQuality.STANDARD : screenQuality;
+        }
+
+        public VisionTrackProperties.SpeechEngine speechEngine(VisionTrackProperties.SpeechEngine fallback) {
+            return speechEngine == null ? fallback : speechEngine;
+        }
+
+        public boolean deletesSpeechAudio() {
+            return Boolean.TRUE.equals(deleteSpeechAudio);
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record SettingsFile(NotionSettings notion, MeetingPreferences meetings) {}
 
     private final Path file;
     private final ObjectMapper json;
@@ -73,24 +114,76 @@ public class SettingsService {
     }
 
     public NotionSettings notion() {
-        if (!Files.isRegularFile(file)) return NotionSettings.NONE;
+        SettingsFile settings = read();
+        return settings == null || settings.notion() == null ? NotionSettings.NONE : settings.notion();
+    }
+
+    public MeetingPreferences meetings() {
+        SettingsFile settings = read();
+        return settings == null || settings.meetings() == null ? MeetingPreferences.NONE : settings.meetings();
+    }
+
+    /** Remembers the database the app created or found; the rest of the file is kept. */
+    public void saveNotionDatabase(String databaseId, String dataSourceId) throws IOException {
+        update(root -> {
+            ObjectNode notion = section(root, "notion");
+            if (databaseId != null) notion.put("databaseId", databaseId);
+            if (dataSourceId != null) notion.put("dataSourceId", dataSourceId);
+        });
+    }
+
+    /** A null {@code token} keeps the saved one, a blank one removes it; a new page forgets the old database. */
+    public void saveNotion(String token, String parentPageId, boolean autoExport) throws IOException {
+        String parent = notionId(parentPageId);
+        if (parentPageId != null && !parentPageId.isBlank() && parent == null) {
+            throw new IllegalArgumentException("This is not a Notion page link or id");
+        }
+        update(root -> {
+            ObjectNode notion = section(root, "notion");
+            if (token != null) {
+                if (token.isBlank()) notion.remove("token");
+                else notion.put("token", token.strip());
+            }
+            if (!Objects.equals(notionId(notion.path("parentPageId").asText(null)), parent)) {
+                notion.remove("databaseId");
+                notion.remove("dataSourceId");
+            }
+            if (parent == null) notion.remove("parentPageId");
+            else notion.put("parentPageId", parent);
+            notion.put("autoExport", autoExport);
+        });
+    }
+
+    /** Replaces the meeting choices; unknown keys are kept. */
+    public void saveMeetings(MeetingPreferences preferences) throws IOException {
+        JsonNode values = json.valueToTree(preferences);
+        update(root -> {
+            ObjectNode meetings = section(root, "meetings");
+            values.properties().forEach(field -> {
+                if (field.getValue().isNull()) meetings.remove(field.getKey());
+                else meetings.set(field.getKey(), field.getValue());
+            });
+        });
+    }
+
+    private SettingsFile read() {
+        if (!Files.isRegularFile(file)) return null;
         try {
-            SettingsFile settings = json.readValue(file.toFile(), SettingsFile.class);
-            return settings == null || settings.notion() == null ? NotionSettings.NONE : settings.notion();
+            return json.readValue(file.toFile(), SettingsFile.class);
         } catch (JsonProcessingException e) {
             // The message would quote the file; only say where it is broken
             log.warn("Cannot read {}: invalid JSON near line {}, column {}", file,
                     e.getLocation() == null ? "?" : e.getLocation().getLineNr(),
                     e.getLocation() == null ? "?" : e.getLocation().getColumnNr());
-            return NotionSettings.NONE;
+            return null;
         } catch (IOException e) {
             log.warn("Cannot read {}: {}", file, e.getClass().getSimpleName());
-            return NotionSettings.NONE;
+            return null;
         }
     }
 
-    /** Remembers the database the app created (or found); everything else in the file is kept as it is. */
-    public synchronized void saveNotionDatabase(String databaseId, String dataSourceId) throws IOException {
+    /** Changes the file as a JSON tree and writes it back atomically, keeping unknown keys. */
+    private synchronized void update(Consumer<ObjectNode> change) throws IOException {
         ObjectNode root;
         try {
             JsonNode existing = json.readTree(file.toFile());
@@ -100,13 +193,15 @@ public class SettingsService {
         } catch (JsonProcessingException e) {
             throw new IOException("Cannot update " + file + ": it is not valid JSON");
         }
-        ObjectNode notion = root.get("notion") instanceof ObjectNode object ? object : root.putObject("notion");
-        if (databaseId != null) notion.put("databaseId", databaseId);
-        if (dataSourceId != null) notion.put("dataSourceId", dataSourceId);
+        change.accept(root);
         Files.createDirectories(file.getParent());
         Path temp = file.resolveSibling(file.getFileName() + ".tmp");
         json.writeValue(temp.toFile(), root);
         Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+    }
+
+    private static ObjectNode section(ObjectNode root, String name) {
+        return root.get(name) instanceof ObjectNode object ? object : root.putObject(name);
     }
 
     /** The id in a Notion id or link, as 8-4-4-4-12; null if there is none. */

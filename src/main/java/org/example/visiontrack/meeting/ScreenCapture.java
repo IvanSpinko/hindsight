@@ -1,5 +1,7 @@
 package org.example.visiontrack.meeting;
 
+import org.example.visiontrack.config.SettingsService.ScreenQuality;
+
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
@@ -16,15 +18,22 @@ final class ScreenCapture {
     // The recording is for people to rewatch, so the mouse pointer is kept: it shows what was pointed at
     // H.264 needs even sizes
     private static final String EVEN_SIZE = "scale=trunc(iw/2)*2:trunc(ih/2)*2";
-    // Constant quality keeps text sharp at a low bitrate. No B-frames and IDR keyframes,
+    // Constant quality keeps text sharp at a low bitrate (lower cq = sharper). No B-frames and IDR keyframes,
     // so each part starts cleanly; a keyframe every 2 s keeps seeking quick.
-    static final List<String> ENCODER = List.of(
-            "-c:v", "h264_nvenc", "-bf", "0", "-forced-idr", "1",
-            "-rc", "vbr", "-cq", "28", "-b:v", "0", "-maxrate", "8M", "-bufsize", "16M", "-g", "60");
+    static List<String> encoder(ScreenQuality quality) {
+        String[] rate = switch (quality) {
+            case SMALL -> new String[]{"33", "4M", "8M"};
+            case STANDARD -> new String[]{"28", "8M", "16M"};
+            case HIGH -> new String[]{"23", "16M", "32M"};
+        };
+        return List.of("-c:v", "h264_nvenc", "-bf", "0", "-forced-idr", "1",
+                "-rc", "vbr", "-cq", rate[0], "-b:v", "0", "-maxrate", rate[1], "-bufsize", rate[2], "-g", "60");
+    }
 
     private ScreenCapture() {}
 
-    static List<String> args(Method method, int monitor, double fps, Path directory, int segmentSeconds, int maxSeconds) {
+    static List<String> args(Method method, int monitor, double fps, ScreenQuality quality, Path directory,
+                             int segmentSeconds, int maxSeconds) {
         List<String> args = new ArrayList<>(CaptureArgs.common(maxSeconds));
         String rate = String.format(Locale.ROOT, "%.3f", fps);
         if (method == Method.DDAGRAB) {
@@ -39,7 +48,7 @@ final class ScreenCapture {
             }
             args.addAll(List.of("-i", "desktop", "-vf", EVEN_SIZE));
         }
-        args.addAll(ENCODER);
+        args.addAll(encoder(quality));
         args.addAll(CaptureArgs.keyframeAtEverySegment(segmentSeconds));
         args.addAll(CaptureArgs.segmentedOutput(directory, "screen", segmentSeconds));
         return args;

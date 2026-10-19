@@ -75,4 +75,17 @@ class MeetingStoreTest {
         assertThat(store.find("id-1")).isEmpty();
         assertThatThrownBy(() -> store.delete("id-1")).isInstanceOf(NoSuchFileException.class);
     }
+
+    @Test
+    void editingTheStartKeepsTheLength() {
+        Meeting uploaded = Meeting.uploaded("id-1", "Upload", "call.m4a", List.of())
+                .withTracks(List.of(new Meeting.Track("audio", "call.m4a", 0, 600)));
+        java.time.Instant monday = java.time.Instant.parse("2026-10-12T09:00:00Z");
+
+        Meeting edited = uploaded.edited("Planning", monday);
+
+        assertThat(edited.title()).isEqualTo("Planning");
+        assertThat(edited.startedAt()).isEqualTo(monday);
+        assertThat(edited.stoppedAt()).isEqualTo(monday.plusSeconds(600));
+    }
 }

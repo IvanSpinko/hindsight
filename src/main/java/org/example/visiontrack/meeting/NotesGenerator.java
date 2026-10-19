@@ -10,10 +10,16 @@ import java.util.List;
 public interface NotesGenerator {
 
     /** What the notes are written from. Segment times are seconds on the meeting timeline. */
-    record Input(String title, ZonedDateTime startedAt, double durationSeconds, List<TranscriptSegment> segments) {
+    /** {@code language}: ISO code of the notes; null for the main language of the speech. */
+    record Input(String title, ZonedDateTime startedAt, double durationSeconds, List<TranscriptSegment> segments,
+                 String language) {
 
         public Input {
             segments = List.copyOf(segments);
+        }
+
+        Input(String title, ZonedDateTime startedAt, double durationSeconds, List<TranscriptSegment> segments) {
+            this(title, startedAt, durationSeconds, segments, null);
         }
     }
 

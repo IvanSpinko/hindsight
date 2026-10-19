@@ -59,6 +59,8 @@ visiontrack:
   jobs:
     concurrency: 1
     queue-capacity: 20
+    # Video analyses, one JSON file each
+    directory: data/analyses
   # Every run's detections as gzipped JSON Lines (in-progress/ -> outbox/ -> uploaded/)
   export:
     directory: data/exports

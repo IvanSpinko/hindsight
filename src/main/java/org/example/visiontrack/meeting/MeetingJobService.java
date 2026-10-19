@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import org.example.visiontrack.GpuRequiredException;
 import org.example.visiontrack.analysis.ProgressListener;
+import org.example.visiontrack.config.SettingsService;
 import org.example.visiontrack.config.VisionTrackProperties;
 import org.example.visiontrack.detection.ObjectDetectorProvider;
 import org.example.visiontrack.detection.OnnxYoloDetector;
@@ -14,11 +15,14 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -58,6 +62,7 @@ public class MeetingJobService {
     /** Object detection is unloaded while a meeting is processed, so the speech and notes models have the GPU. */
     private final ObjectDetectorProvider detectors;
     private final NotionExportService notion;
+    private final SettingsService preferences;
     private final Set<String> queued = ConcurrentHashMap.newKeySet();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "meeting-processing");
@@ -66,8 +71,9 @@ public class MeetingJobService {
     });
 
     public MeetingJobService(MeetingStore store, VisionTrackProperties properties, ObjectMapper objectMapper,
-                             ObjectDetectorProvider detectors, NotionExportService notion) {
+                             ObjectDetectorProvider detectors, NotionExportService notion, SettingsService preferences) {
         this.store = store;
+        this.preferences = preferences;
         this.detectors = detectors;
         this.notion = notion;
         VisionTrackProperties.Meetings settings = properties.meetings();
@@ -79,6 +85,36 @@ public class MeetingJobService {
         this.json = objectMapper;
         this.transcripts = new TranscriptWriter(objectMapper);
         this.notesSettings = settings.notes();
+    }
+
+    /**
+     * Renames a meeting or changes its start time and rewrites transcript.md and notes.md; the folder keeps its name.
+     *
+     * @throws NoSuchElementException if there is no such meeting
+     * @throws IllegalStateException  while the meeting is recorded or processed
+     */
+    public Meeting edit(String id, String title, Instant startedAt) throws IOException {
+        Meeting meeting = store.find(id).orElseThrow(() -> new NoSuchElementException("Meeting not found"));
+        if (meeting.status() == Meeting.Status.RECORDING) throw new IllegalStateException("The meeting is still being recorded");
+        if (meeting.status() == Meeting.Status.PROCESSING || queued.contains(id)) {
+            throw new IllegalStateException("The meeting is still being processed");
+        }
+        String newTitle = title == null || title.isBlank() ? meeting.title() : title.strip();
+        Meeting edited = meeting.edited(newTitle, startedAt == null ? meeting.startedAt() : startedAt);
+        store.save(edited);
+        Path folder = store.folder(id).orElseThrow(() -> new NoSuchElementException("Meeting not found"));
+        Path transcript = folder.resolve(TranscriptWriter.JSON_FILE);
+        if (Files.isRegularFile(transcript)) {
+            TranscriptWriter.TranscriptFile file = json.readValue(transcript.toFile(), TranscriptWriter.TranscriptFile.class);
+            Files.writeString(folder.resolve(TranscriptWriter.MARKDOWN_FILE), TranscriptWriter.markdown(newTitle,
+                    new Transcriber.Result(file.segments(), file.model(), file.backend(), file.languages())), StandardCharsets.UTF_8);
+        }
+        Path notesFile = folder.resolve(NOTES_JSON);
+        if (edited.notes() != null && Files.isRegularFile(notesFile)) {
+            markdown.export(folder, edited, json.readValue(notesFile.toFile(), MeetingNotes.class), edited.notes().model());
+        }
+        log.info("Meeting {} edited: \"{}\", {}", id, newTitle, edited.startedAt());
+        return edited;
     }
 
     /** Queues a recorded meeting; does nothing if it is already queued or running. */
@@ -108,6 +144,7 @@ public class MeetingJobService {
             Meeting.Transcription transcription = transcribe(meeting, folder);
             Meeting.NotesInfo notes = writeNotes(meeting, folder);
             store.find(id).ifPresent(m -> store.save(m.ready(transcription, notes)));
+            if (transcription != null && preferences.meetings().deletesSpeechAudio()) deleteSpeechAudio(meeting, folder);
             log.info("Meeting {} processed: {} speech segments, notes {}", id,
                     transcription == null ? 0 : transcription.segments(), notes == null ? "skipped" : "written");
             if (notes != null) notion.afterProcessing(id);
@@ -128,7 +165,8 @@ public class MeetingJobService {
                 .filter(t -> Files.isRegularFile(folder.resolve(t.file())))
                 .map(t -> new Transcriber.Track(folder.resolve(t.file()), t.startOffsetMillis() / 1000.0, t.kind()))
                 .toList();
-        if (tracks.isEmpty()) return null;
+        // Speech audio was deleted after an earlier run: keep that transcript
+        if (tracks.isEmpty()) return meeting.transcription();
         Transcriber transcriber = transcriber(meeting.id(), folder);
         if (transcriber == null) {
             String warning = "Speech recognition is not installed (" + whisper.directory() + "), the transcript was skipped";
@@ -151,7 +189,7 @@ public class MeetingJobService {
     private Transcriber transcriber(String id, Path folder) {
         WhisperCppTranscriber whisperCpp = WhisperCppTranscriber.isInstalled(whisper)
                 ? new WhisperCppTranscriber(whisper, json, folder.resolve("logs")) : null;
-        if (speechEngine == VisionTrackProperties.SpeechEngine.PARAKEET) {
+        if (preferences.meetings().speechEngine(speechEngine) == VisionTrackProperties.SpeechEngine.PARAKEET) {
             if (ParakeetTranscriber.isInstalled(parakeet.directory(), whisper)) {
                 // Whisper, when installed, is the backup for pieces written in Cyrillic
                 return new ParakeetTranscriber(parakeet.directory(), whisper,
@@ -178,7 +216,7 @@ public class MeetingJobService {
         }
         double duration = meeting.tracks().stream().mapToDouble(Meeting.Track::durationSeconds).max().orElse(0);
         NotesGenerator.Input input = new NotesGenerator.Input(meeting.title(), meeting.startedAt().atZone(ZoneId.systemDefault()),
-                duration, segments);
+                duration, segments, preferences.meetings().notesLanguage());
         String model = notesSettings.model().getFileName().toString().replaceFirst("(?i)\\.gguf$", "");
         store.find(meeting.id()).ifPresent(m -> store.save(m.processing(STEP_NOTES, 0)));
         List<LlamaServer.CudaDevice> gpus;
@@ -246,6 +284,21 @@ public class MeetingJobService {
         log.info("Meeting {}: uploaded recording prepared, {} s", meeting.id(),
                 Math.round(tracks.stream().mapToDouble(Meeting.Track::durationSeconds).max().orElse(0)));
         return prepared;
+    }
+
+    /** Deletes the speech WAV files; the recording, transcript and notes stay. */
+    private void deleteSpeechAudio(Meeting meeting, Path folder) {
+        Meeting.Track playback = meeting.playback();
+        if (playback == null || !Files.isRegularFile(folder.resolve(playback.file()))) return;
+        for (Meeting.Track track : meeting.tracks()) {
+            if (!SPEECH_TRACKS.contains(track.kind())) continue;
+            try {
+                Files.deleteIfExists(folder.resolve(track.file()));
+            } catch (IOException e) {
+                log.warn("Meeting {}: cannot delete {}: {}", meeting.id(), track.file(), e.getMessage());
+            }
+        }
+        log.info("Meeting {}: speech audio deleted after processing", meeting.id());
     }
 
     private Ffmpeg ffmpeg() {
