@@ -8,6 +8,12 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          # The browser keeps the page between app versions otherwise and shows an old UI after an update
+          no-cache: true
   task:
     scheduling:
       pool:
