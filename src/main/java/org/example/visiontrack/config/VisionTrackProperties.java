@@ -88,20 +88,28 @@ public record VisionTrackProperties(
     /** Folder with the NVIDIA Parakeet ONNX export (nemo128, encoder, decoder_joint, vocab). */
     public record Parakeet(@NotNull Path directory) {}
 
-    /** Notes model on llama.cpp (CUDA). Meetings longer than {@code chunkMinutes} are summarised in parts. */
+    /**
+     * Notes model on llama.cpp (CUDA). Meetings longer than {@code chunkMinutes} are summarised in parts.
+     * {@code cudaDir} holds the CUDA libraries when they are not next to llama-server (the desktop app).
+     */
     public record Notes(
             @NotNull Path directory,
             @NotNull Path model,
             @Min(1) int chunkMinutes,
             @Min(2048) int contextTokens,
-            @Min(256) int maxTokens
+            @Min(256) int maxTokens,
+            Path cudaDir
     ) {}
 
-    /** whisper.cpp on CUDA; {@code languages} are the allowed ISO codes, the first is the fallback. */
+    /**
+     * whisper.cpp on CUDA; {@code languages} are the allowed ISO codes, the first is the fallback.
+     * {@code cudaDir} holds the CUDA libraries when they are not next to the whisper tools (the desktop app).
+     */
     public record Whisper(
             @NotNull Path directory,
             @NotNull Path model,
             @NotNull Path vadModel,
-            @NotEmpty List<String> languages
+            @NotEmpty List<String> languages,
+            Path cudaDir
     ) {}
 }

@@ -127,7 +127,7 @@ public final class WhisperCppTranscriber implements Transcriber {
                 "-vm", settings.vadModel().toString(), "-f", wav.toString(), "-np", "-t", "4",
                 // pauses of 0.3 s separate segments; pieces are then grouped by SpeechChunks
                 "-vsd", "300", "-vp", "100");
-        Process process = new ProcessBuilder(command).redirectError(ProcessBuilder.Redirect.DISCARD).start();
+        Process process = CudaTools.process(command, settings.cudaDir()).redirectError(ProcessBuilder.Redirect.DISCARD).start();
         process.getOutputStream().close();
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         try {
@@ -159,7 +159,7 @@ public final class WhisperCppTranscriber implements Transcriber {
         WhisperServer server;
         try {
             server = WhisperServer.start(executable(settings, "whisper-server"), settings.model(), 4,
-                    logDirectory.resolve("whisper.log"), json);
+                    settings.cudaDir(), logDirectory.resolve("whisper.log"), json);
         } catch (IOException e) {
             // Without the NVIDIA driver the CUDA build may not even start
             if (!nvidiaDriverInstalled()) throw new GpuRequiredException(SPEECH, e);

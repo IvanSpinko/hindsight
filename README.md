@@ -73,7 +73,7 @@ It also shows your graphics card and how much of its memory is free.
 - An NVIDIA graphics card with an up-to-date driver. It is required: the app does all its work on it.
   Video analysis runs on most recent cards; meeting notes need 12 GB of video memory (for example an
   RTX 3060 12 GB, RTX 4070 or better).
-- About 15 GB of free disk space for the app and its AI models, plus room for your recordings.
+- About 14 GB of free disk space for the app and its AI models, plus room for your recordings.
 
 Without a suitable NVIDIA card the app still opens, but it tells you which features need one.
 
@@ -165,6 +165,6 @@ How it is built, set up and paid for: [docs/cloud-pipeline.md](docs/cloud-pipeli
 - Windows and an NVIDIA graphics card only.
 - Everyone on the other side of a call is "Other participants"; the notes cannot yet tell those voices apart.
 - The notes come from a local AI model and can get a name or a date wrong, so check them before you rely on them.
-- The ready-made app is large (about 15 GB), mostly because of the AI models.
+- The ready-made app is large (about 13 GB), mostly because of the AI models.
 - The object detection model (Ultralytics YOLO) is licensed under AGPL-3.0, which matters if the app is shared
   publicly.

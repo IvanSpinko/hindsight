@@ -19,7 +19,7 @@ REQUIREMENTS
   the live camera, screen recording and speech recognition all run on the GPU. No need to install CUDA,
   everything required is bundled. Without a compatible card the app still opens, but these features show
   "... needs an NVIDIA graphics card with CUDA". If you have an NVIDIA card, update the driver from nvidia.com.
-  Meeting notes need 12 GB of video memory (RTX 3060 12 GB, 4070 or better). The app takes about 15 GB of disk.
+  Meeting notes need 12 GB of video memory (RTX 3060 12 GB, 4070 or better). The app takes about 13 GB of disk.
 
 MEETINGS
   Record a call (your screen, your microphone and the other participants) or upload a recording.
