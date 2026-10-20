@@ -43,7 +43,7 @@ final class LlamaServer implements LocalNotesGenerator.Model, AutoCloseable {
     }
 
     /** One slot, all layers on the GPU, flash attention, no thinking (the answer is grammar-constrained JSON). */
-    static LlamaServer start(Path executable, Path model, int contextTokens, Path log, ObjectMapper json)
+    static LlamaServer start(Path executable, Path model, int contextTokens, Path cudaDir, Path log, ObjectMapper json)
             throws IOException, InterruptedException {
         int port;
         try (ServerSocket socket = new ServerSocket(0)) {
@@ -54,7 +54,7 @@ final class LlamaServer implements LocalNotesGenerator.Model, AutoCloseable {
                 "-c", String.valueOf(contextTokens), "-np", "1", "-ngl", "all", "-fa", "on",
                 "--reasoning", "off", "--no-webui");
         Files.createDirectories(log.getParent());
-        Process process = new ProcessBuilder(command)
+        Process process = CudaTools.process(command, cudaDir)
                 .redirectErrorStream(true)
                 .redirectOutput(ProcessBuilder.Redirect.to(log.toFile()))
                 .start();
@@ -93,8 +93,9 @@ final class LlamaServer implements LocalNotesGenerator.Model, AutoCloseable {
     private static final Pattern DEVICE = Pattern.compile("^\\s*CUDA\\d+:\\s*(.+?)\\s*\\((\\d+) MiB, (\\d+) MiB free\\)");
 
     /** The CUDA devices ({@code --list-devices} prints e.g. "CUDA0: NVIDIA GeForce RTX 5070 (12226 MiB, 11035 MiB free)"). */
-    static List<CudaDevice> cudaDevices(Path executable) throws IOException, InterruptedException {
-        Process process = new ProcessBuilder(executable.toString(), "--list-devices").redirectErrorStream(true).start();
+    static List<CudaDevice> cudaDevices(Path executable, Path cudaDir) throws IOException, InterruptedException {
+        Process process = CudaTools.process(List.of(executable.toString(), "--list-devices"), cudaDir)
+                .redirectErrorStream(true).start();
         process.getOutputStream().close();
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         if (!process.waitFor(1, TimeUnit.MINUTES)) process.destroyForcibly();

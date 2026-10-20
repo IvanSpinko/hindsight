@@ -65,7 +65,7 @@
             <version>${onnxruntime.version}</version>
         </dependency>
 
-        <!-- Video decoding: FFmpeg via JavaCV (natives for Windows dev + Linux/AWS only) -->
+        <!-- Video decoding: FFmpeg via JavaCV (natives for Windows dev + Linux/AWS only, see the profile below) -->
         <dependency>
             <groupId>org.bytedeco</groupId>
             <artifactId>javacv</artifactId>
@@ -79,21 +79,9 @@
         </dependency>
         <dependency>
             <groupId>org.bytedeco</groupId>
-            <artifactId>javacpp</artifactId>
-            <version>${javacv.version}</version>
-            <classifier>linux-x86_64</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.bytedeco</groupId>
             <artifactId>ffmpeg</artifactId>
             <version>${ffmpeg.version}</version>
             <classifier>windows-x86_64</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.bytedeco</groupId>
-            <artifactId>ffmpeg</artifactId>
-            <version>${ffmpeg.version}</version>
-            <classifier>linux-x86_64</classifier>
         </dependency>
 
         <!-- Cloud export of detection data to S3 (off by default). Sync client only: no Netty.
@@ -145,5 +133,31 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Linux natives for AWS; the Windows desktop build (-Ddesktop, packaging\build-desktop.ps1) leaves them out -->
+        <profile>
+            <id>linux-natives</id>
+            <activation>
+                <property>
+                    <name>!desktop</name>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.bytedeco</groupId>
+                    <artifactId>javacpp</artifactId>
+                    <version>${javacv.version}</version>
+                    <classifier>linux-x86_64</classifier>
+                </dependency>
+                <dependency>
+                    <groupId>org.bytedeco</groupId>
+                    <artifactId>ffmpeg</artifactId>
+                    <version>${ffmpeg.version}</version>
+                    <classifier>linux-x86_64</classifier>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 
 </project>

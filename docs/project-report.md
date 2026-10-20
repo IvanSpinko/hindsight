@@ -56,7 +56,7 @@ Without a CUDA-capable NVIDIA GPU the app still starts, but the heavy features a
 | Build only the system sound helper | `powershell -ExecutionPolicy Bypass -File packaging\build-loopback.ps1` |
 | Run | `java -jar target\visiontrack-object-detection-aws-1.0-SNAPSHOT.jar`, open http://localhost:8080 |
 | Run on another port, no browser | add `--server.port=18080 --visiontrack.open-browser=false` |
-| Desktop app (exe + bundled Java, meeting tools and models) | `powershell -ExecutionPolicy Bypass -File packaging\build-desktop.ps1` → `dist\Hindsight\` and `dist\Hindsight.zip` (~15 GB; `-NoMeetings` for the ~2.6 GB video-only app) |
+| Desktop app (exe + bundled Java, meeting tools and models) | `powershell -ExecutionPolicy Bypass -File packaging\build-desktop.ps1` → `dist\Hindsight\` and `dist\Hindsight.zip` (~13 GB; `-NoMeetings` for the ~2.3 GB video-only app) |
 
 `get-models.ps1` downloads and installs:
 - whisper.cpp build `b5454` (CUDA 12.4) → `tools\whisper` (server, VAD tool, DLLs, ~1.1 GB);
@@ -468,8 +468,8 @@ with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call 
 
 ## 13. Known issues and limitations
 
-1. The full desktop build is ~15 GB, mostly the notes model; the CUDA DLLs are stored three times
-   (`app\cuda`, `tools\whisper`, `tools\llama`).
+1. The full desktop build is ~13 GB, mostly the notes model. CUDA is stored once (`app\cuda`): whisper.cpp and
+   llama.cpp get it on their PATH (`meetings.whisper.cuda-dir`, `meetings.notes.cuda-dir`).
 2. Remote use is not supported: the server binds to 127.0.0.1 and every API answers requests from this computer
    only (403 otherwise), so the app cannot be shared on a local network.
 3. Rebuilding `target\*.jar` while the app runs from it breaks the running app.
@@ -524,8 +524,8 @@ Done since the first version of this plan: stage 7 (Notion export), stage 8 (Set
 
 ### Still open from stages 8 and 9
 - A level meter for the system sound and a list of the installed models in Settings.
-- A smaller download: remove Linux natives from the jar, one shared copy of the CUDA DLLs (~1.5 GB), a 7z archive
-  or downloading the models on first start.
+- A smaller download: downloading the models on first start (the zip would shrink from ~11 GB to ~3 GB). Linux
+  natives are already out of the desktop jar and the CUDA DLLs are stored once (2026-10-20, ~1.4 GB less).
 
 ### Fixes worth doing before or alongside
 - Test with real calls (Zoom/Teams/Telegram, Russian and English, with and without headphones) and tune

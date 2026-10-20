@@ -1,5 +1,5 @@
 # Builds the portable desktop app: dist\Hindsight\Hindsight.exe (+ bundled Java) and dist\Hindsight.zip,
-# with everything meetings need (speech and notes models, ~12 GB; run packaging\get-models.ps1 first).
+# with everything meetings need (speech and notes models, ~11 GB; run packaging\get-models.ps1 first).
 # -NoMeetings builds the small video-only app.
 # Usage (from the project root):  powershell -ExecutionPolicy Bypass -File packaging\build-desktop.ps1
 param(
@@ -40,7 +40,8 @@ if (-not $NoMeetings) {
 }
 
 Write-Host "1/4 Building the jar..."
-& $mvn -q clean package -DskipTests
+# -Ddesktop leaves out the Linux FFmpeg natives (the linux-natives profile in pom.xml)
+& $mvn -q clean package -DskipTests -Ddesktop
 if ($LASTEXITCODE -ne 0) { throw "Maven build failed" }
 
 Write-Host "2/4 Preparing files..."
@@ -48,6 +49,30 @@ $staging = "target\jpackage-input"
 New-Item -ItemType Directory -Force "$staging\models" | Out-Null
 Copy-Item "target\visiontrack-object-detection-aws-1.0-SNAPSHOT.jar" "$staging\visiontrack.jar"
 Copy-Item "models\$Model", "models\classes.txt" "$staging\models\"
+
+# onnxruntime_gpu ships Linux libraries and a 350 MB debug .pdb as well: keep only the Windows libraries.
+# Spring Boot needs nested jars stored without compression, hence --no-compress.
+$jar = Join-Path (Split-Path -Parent $jpackage) "jar.exe"
+$ort = & $jar --list --file "$staging\visiontrack.jar" | Where-Object { $_ -like "BOOT-INF/lib/onnxruntime_gpu-*.jar" }
+if (-not $ort) { throw "onnxruntime_gpu not found in the jar" }
+$appJar = (Resolve-Path "$staging\visiontrack.jar").Path
+$ortWork = "target\ort-slim"
+New-Item -ItemType Directory -Force "$ortWork\content" | Out-Null
+# jar --extract (JDK 21) writes into the current folder
+Push-Location $ortWork
+try {
+    & $jar --extract --file $appJar $ort
+    if ($LASTEXITCODE -ne 0) { throw "Cannot extract $ort from the jar" }
+    Push-Location content
+    try { & $jar --extract --file "..\$ort" } finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0) { throw "Cannot unpack $ort" }
+    Remove-Item -Recurse -Force "content\ai\onnxruntime\native\linux-x64"
+    Get-ChildItem content -Recurse -Filter *.pdb | Remove-Item -Force
+    & $jar --create --file $ort --no-manifest -C content .
+    if ($LASTEXITCODE -ne 0) { throw "Cannot repack $ort" }
+    & $jar --update --file $appJar --no-compress $ort
+    if ($LASTEXITCODE -ne 0) { throw "Cannot put the slimmed $ort back into the jar" }
+} finally { Pop-Location }
 
 Write-Host "3/4 Packaging Hindsight.exe (takes a minute)..."
 if (Test-Path "dist\Hindsight") { Remove-Item -Recurse -Force "dist\Hindsight" }
@@ -65,9 +90,11 @@ if (-not $NoMeetings) {
         '-Dvisiontrack.meetings.whisper.directory=$APPDIR\tools\whisper',
         '-Dvisiontrack.meetings.whisper.model=$APPDIR\models\whisper\ggml-large-v3-turbo-q8_0.bin',
         '-Dvisiontrack.meetings.whisper.vad-model=$APPDIR\models\whisper\ggml-silero-v5.1.2.bin',
+        '-Dvisiontrack.meetings.whisper.cuda-dir=$APPDIR\cuda',
         '-Dvisiontrack.meetings.parakeet.directory=$APPDIR\models\parakeet-tdt-0.6b-v3',
         '-Dvisiontrack.meetings.notes.directory=$APPDIR\tools\llama',
-        '-Dvisiontrack.meetings.notes.model=$APPDIR\models\llm\gemma-4-12b-it-qat-q4_0.gguf'
+        '-Dvisiontrack.meetings.notes.model=$APPDIR\models\llm\gemma-4-12b-it-qat-q4_0.gguf',
+        '-Dvisiontrack.meetings.notes.cuda-dir=$APPDIR\cuda'
     )
 }
 $jpackageArgs = @("--type", "app-image", "--name", "Hindsight", "--app-version", $Version,
@@ -95,12 +122,16 @@ $cudnn | Copy-Item -Destination $cudaDir
 Copy-Item "packaging\README.txt" "dist\Hindsight\README.txt"
 
 if (-not $NoMeetings) {
-    Write-Host "     Adding the meeting tools and models (~12 GB)..."
+    Write-Host "     Adding the meeting tools and models (~11 GB)..."
     foreach ($item in $meetingFiles) {
         $target = Join-Path "dist\Hindsight\app" (Split-Path -Parent $item)
         New-Item -ItemType Directory -Force $target | Out-Null
         Copy-Item -Recurse -Force $item $target
     }
+    # whisper.cpp and llama.cpp each come with their own CUDA runtime (~575 MB apiece); app\cuda has a newer
+    # CUDA 12 they work with, and the app puts it on their PATH (meetings.*.cuda-dir above)
+    Get-ChildItem "dist\Hindsight\app\tools\whisper", "dist\Hindsight\app\tools\llama" -Include "cublas*.dll", "cudart*.dll" -Recurse |
+        Remove-Item -Force
 }
 
 if (-not $NoZip) {

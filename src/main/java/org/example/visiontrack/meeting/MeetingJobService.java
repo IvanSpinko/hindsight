@@ -221,7 +221,7 @@ public class MeetingJobService {
         store.find(meeting.id()).ifPresent(m -> store.save(m.processing(STEP_NOTES, 0)));
         List<LlamaServer.CudaDevice> gpus;
         try {
-            gpus = LlamaServer.cudaDevices(server);
+            gpus = LlamaServer.cudaDevices(server, notesSettings.cudaDir());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Writing notes was interrupted", e);
@@ -233,7 +233,7 @@ public class MeetingJobService {
             return null;
         }
         try (LlamaServer llama = LlamaServer.start(server, notesSettings.model(), notesSettings.contextTokens(),
-                folder.resolve("logs/llama.log"), json)) {
+                notesSettings.cudaDir(), folder.resolve("logs/llama.log"), json)) {
             NotesGenerator.Result result = new LocalNotesGenerator(llama, model, notesSettings.chunkMinutes() * 60.0,
                     notesSettings.contextTokens(), notesSettings.maxTokens(), json)
                     .generate(input, progressSaver(meeting.id(), STEP_NOTES));
