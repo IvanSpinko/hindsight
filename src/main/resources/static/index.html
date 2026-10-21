@@ -35,12 +35,17 @@
     --rec: #f07a66; --shadow: none; --menu-shadow: 0 10px 32px rgba(0, 0, 0, .5); color-scheme: dark;
   }
   * { box-sizing: border-box; }
+  /* Room for the scrollbar is kept even on short pages, so the layout does not shift when it appears */
+  html { scrollbar-gutter: stable; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
-  main { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
-  body.wide main { max-width: 1240px; }
+  /* The header keeps one width in every mode, so the logo and tabs do not move when switching;
+     single-column modes keep their content narrower, starting under the logo */
+  main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 64px; }
+  main > :not(header) { max-width: 900px; }
+  body.wide main > :not(header) { max-width: none; }
   [hidden] { display: none !important; }
 
   /* header: logo, mode tabs and the theme button in one bar */
