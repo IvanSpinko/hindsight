@@ -484,7 +484,7 @@ with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call 
 9. Track offsets come from process start times; the screen starts ~1 s after the microphone (fine for watching).
 10. Disk use: screen up to ~3.6 GB per hour with constant motion (less with lower fps or "Smaller files" in
     Settings); the speech WAV files are kept unless Settings says to delete them.
-11. YOLO-World weights are AGPL-3.0 (Ultralytics): matters if the app is published or shared beyond personal use.
+11. YOLO-World weights are AGPL-3.0 (Ultralytics), so the project itself is published under AGPL-3.0 (`LICENSE`).
 12. Real calls (Zoom, Teams, Telegram) have not been tested yet; only TTS voices, a speaker and hand-written
     transcripts.
 13. No continuous integration: tests run locally, and some of them need the NVIDIA GPU.
