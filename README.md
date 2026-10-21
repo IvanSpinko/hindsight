@@ -165,5 +165,12 @@ How it is built, set up and paid for: [docs/cloud-pipeline.md](docs/cloud-pipeli
 - Everyone on the other side of a call is "Other participants"; the notes cannot yet tell those voices apart.
 - The notes come from a local AI model and can get a name or a date wrong, so check them before you rely on them.
 - The ready-made app is large (about 13 GB), mostly because of the AI models.
-- The object detection model (Ultralytics YOLO) is licensed under AGPL-3.0, which matters if the app is shared
-  publicly.
+
+## License
+
+Copyright (C) 2026 Ivan Spinko.
+
+Hindsight is free software under the [GNU Affero General Public License v3.0](LICENSE): you may use, change and
+share it, as long as changed versions you share (or run as an online service) stay open under the same licence.
+It comes with no warranty. The same licence covers the object detection model it uses (Ultralytics YOLO); the
+other models and tools keep their own licences, listed in [docs/project-report.md](docs/project-report.md).
