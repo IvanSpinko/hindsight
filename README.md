@@ -79,16 +79,8 @@ Without a suitable NVIDIA card the app still opens, but it tells you which featu
 
 ## Getting started
 
-### Using the ready-made app
-
-1. Unpack `Hindsight.zip` into any folder.
-2. Run `Hindsight.exe`. The app opens in its own window; closing the window keeps it running in the tray
-   (next to the clock), right-click the tray icon to quit.
-
-Everything it needs, including Java and the AI models, is inside the folder. If Windows warns that it
-"protected your PC", click *More info* → *Run anyway* (the app is not signed).
-
-### Building it yourself (developers)
+There is no download yet: the app with its AI models is about 13 GB, more than GitHub allows for one file, so it is
+built from the source on your own PC.
 
 You need JDK 21, Maven, Python, the NVIDIA CUDA 12 runtime and cuDNN 9.
 
@@ -105,8 +97,15 @@ java -jar target/visiontrack-object-detection-aws-1.0-SNAPSHOT.jar
 2. `get-models.ps1` downloads the speech and notes models (about 13 GB). Video analysis works without them.
 3. Open http://localhost:8080.
 
-To build the ready-made app run `packaging\build-desktop.ps1`; it creates `dist\Hindsight\Hindsight.exe` and
-`dist\Hindsight.zip`. Default settings are in `src/main/resources/application.yml`.
+Default settings are in `src/main/resources/application.yml`.
+
+### The desktop app
+
+`packaging\build-desktop.ps1` turns the same code into a portable Windows app: `dist\Hindsight\Hindsight.exe`
+with Java and the AI models inside, plus `dist\Hindsight.zip` to copy it to another PC
+(`-NoMeetings` builds a ~2.3 GB video-only version). Run `Hindsight.exe`: the app opens in its own window, and
+closing the window keeps it running in the tray (next to the clock); right-click the tray icon to quit. If
+Windows warns that it "protected your PC", click *More info* → *Run anyway* (the app is not signed).
 
 The project started under the name VisionTrack, so the code, the settings keys and the data folders still use
 that name.
