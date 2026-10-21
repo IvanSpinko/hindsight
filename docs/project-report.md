@@ -1,6 +1,6 @@
 # Hindsight (VisionTrack): full project report
 
-State as of 2026-10-19, `main` after pull request #15 (`c115b37`). This document describes everything the project
+State as of 2026-10-21, `main` after pull request #18 (`bd91dd6`). This document describes everything the project
 does today, how it does it, what it depends on, what is known to be missing or broken, and what comes next.
 Companion documents: `README.md` (plain overview), `docs/api.md` (REST API), `docs/cloud-pipeline.md` (AWS),
 `docs/meeting-notes-spec.md` (requirements of the meetings module, version 2.0).
@@ -129,8 +129,8 @@ GET /api/analyses/{id}/video  the annotated video (MP4)
 
 ### 5.2 Detection
 - Model: **YOLO-World X**, exported to ONNX at 960×960 with a fixed vocabulary of **99 classes**
-  (`models/classes.txt`: person, bicycle, car, ...). Export scripts: `export_yoloworld.py` (Ultralytics,
-  `set_classes`, `imgsz=960`, static shape), `export_model.py` (plain YOLO11x, also in `models/` but unused).
+  (`models/classes.txt`: person, bicycle, car, ...). Export script: `export_yoloworld.py` (Ultralytics,
+  `set_classes`, `imgsz=960`, static shape).
 - `ImagePreprocessor`: letterbox (keep aspect ratio, pad), RGB → CHW float tensor.
 - `OnnxYoloDetector`: ONNX Runtime GPU 1.22 with the **CUDA execution provider only**; graph optimisation level ALL.
   Native DLLs (VC++ runtime, CUDA 12, cuDNN 9) are pre-loaded from `visiontrack.model.native-preload` /
@@ -403,12 +403,12 @@ Repository:
 ```
 src/main/java/org/example/visiontrack/   application code (packages in section 4)
 src/main/resources/                      application.yml, application-desktop.yml, static/index.html, tray icon
-src/test/java/                           136 tests (plus 15 pytest tests in infra/lambda/tests)
+src/test/java/                           136 tests (plus 32 pytest tests in infra/lambda/tests)
 native/audio-loopback/                   system sound helper source (C#)
 packaging/                               build-desktop.ps1, get-models.ps1, build-loopback.ps1, README.txt (for users), icon
 docs/                                    API, cloud pipeline, spec and this report
 infra/                                   Terraform and the Lambda (Python) of the cloud pipeline
-export_yoloworld.py, export_model.py     model export (Python, Ultralytics)
+export_yoloworld.py                      model export (Python, Ultralytics)
 models/classes.txt                       the 99 detection classes
 ```
 Ignored by git: `models/*.onnx`, `models/whisper`, `models/llm`, `models/parakeet-tdt-0.6b-v3`, `tools/`, `weights/`, `data/`, `dist/`,
@@ -427,7 +427,7 @@ Outside the repository at runtime: `Documents\VisionTrack\Meetings\` (meetings),
 | Java, Spring Boot (web, validation, actuator) | 21, 3.5.6 | GPL+CE (JDK), Apache 2.0 |
 | ONNX Runtime GPU | 1.22.0 | MIT |
 | JavaCV / FFmpeg (bundled ffmpeg.exe, ffprobe.exe) | 1.5.11 / 7.1 | Apache 2.0 / LGPL build of bytedeco (NVENC, OpenH264, libvpx, LAME, Opus; no x264) |
-| YOLO-World X, YOLO11x weights (Ultralytics) | exported 2026-10-13 | **AGPL-3.0**: sharing the app publicly means sharing its source under AGPL (or an Ultralytics licence) |
+| YOLO-World X weights (Ultralytics) | exported 2026-10-13 | **AGPL-3.0**: sharing the app publicly means sharing its source under AGPL (or an Ultralytics licence) |
 | whisper.cpp | b5454 | MIT |
 | Whisper large-v3-turbo (ggml q8_0) | | MIT |
 | NVIDIA Parakeet TDT 0.6B v3 (ONNX export by istupakov) | | CC-BY-4.0 (credit NVIDIA when sharing) |
@@ -442,7 +442,7 @@ tried on 2026-10-14 was removed together with the decision to use local models o
 
 ---
 
-## 12. Tests (136, `mvn package`; 15 more for the Lambda with pytest)
+## 12. Tests (136, `mvn package`; 32 more for the Lambda with pytest)
 
 | Area | What is checked |
 |---|---|
@@ -485,7 +485,7 @@ with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call 
 9. Track offsets come from process start times; the screen starts ~1 s after the microphone (fine for watching).
 10. Disk use: screen up to ~3.6 GB per hour with constant motion (less with lower fps or "Smaller files" in
     Settings); the speech WAV files are kept unless Settings says to delete them.
-11. YOLO-World/YOLO11 weights are AGPL-3.0 (Ultralytics): matters if the app is published or shared beyond personal use.
+11. YOLO-World weights are AGPL-3.0 (Ultralytics): matters if the app is published or shared beyond personal use.
 12. Real calls (Zoom, Teams, Telegram) have not been tested yet; only TTS voices, a speaker and hand-written
     transcripts.
 13. No continuous integration: tests run locally, and some of them need the NVIDIA GPU.
@@ -511,6 +511,9 @@ with `CUDA_VISIBLE_DEVICES=-1`) with Windows TTS voices; a real Zoom/Teams call 
 | `61ef207` (PR #13) | comments and README tidied |
 | `ef7a8ad` (PR #14) | desktop build ships the meeting tools and models |
 | `c115b37` (PR #15) | stage 8: Settings tab, meeting rename, analyses kept across restarts |
+| `c972273` (PR #16) | README rewritten in plain language, docs refreshed |
+| `fde0fd2` (PR #17) | slimmer desktop build: no Linux natives, one copy of CUDA |
+| `bd91dd6` (PR #18) | sage and cream colour theme, mode tabs fit on one line on phones |
 
 ---
 
