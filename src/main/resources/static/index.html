@@ -4,33 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hindsight</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='2' y='2' width='60' height='60' rx='16' fill='%23b65a37'/%3E%3Cpath d='M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39' fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='2' y='2' width='60' height='60' rx='16' fill='%235f7458'/%3E%3Cpath d='M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39' fill='none' stroke='%23fff' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23fff'/%3E%3C/svg%3E">
 <script>
   // Apply the saved theme before the page is drawn, so it does not flash in the other one
   try { const t = localStorage.getItem('visiontrack.theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
 </script>
 <style>
-  /* Colours: sand neutrals with a terracotta accent */
+  /* Colours: warm cream neutrals with a sage accent (#C7D3C0); --accent-ink is text on --accent-soft,
+     --accent-tint is the lighter shade for large selected areas */
   :root {
-    --bg: #f6f1ea; --surface: #fffdf9; --raised: #faf5ee; --border: #e8dfd3; --border-strong: #d6c8b7;
-    --text: #2b2420; --muted: #7a6c60; --accent: #b65a37; --accent-strong: #9f4c2c; --accent-soft: #f6e6dc; --on-accent: #ffffff;
-    --error: #a83a35; --error-soft: #f6e1de; --warn: #85601d; --warn-soft: #f6ecd6; --ok: #5b7646; --ok-soft: #e8eedc;
-    --rec: #cf4636; --shadow: 0 1px 2px rgba(70, 45, 20, .05), 0 2px 12px rgba(70, 45, 20, .05);
-    --menu-shadow: 0 8px 28px rgba(70, 45, 20, .16); color-scheme: light;
+    --bg: #f7f4ed; --surface: #fdfcf8; --raised: #f1eee5; --border: #e3dfd3; --border-strong: #cdc9bb;
+    --text: #262a23; --muted: #646a5e; --accent: #5f7458; --accent-strong: #4e6148; --accent-soft: #c7d3c0; --accent-tint: #e6ece2; --accent-ink: #3f4f3a; --on-accent: #ffffff;
+    --error: #a83a35; --error-soft: #f6e1de; --warn: #85601d; --warn-soft: #f6ecd6; --ok: #2a7258; --ok-soft: #d6ede3;
+    --rec: #cf4636; --shadow: 0 1px 2px rgba(40, 50, 30, .05), 0 2px 12px rgba(40, 50, 30, .05);
+    --menu-shadow: 0 8px 28px rgba(40, 50, 30, .16); color-scheme: light;
   }
   /* Dark theme: follows the system unless picked in the header */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #1c1814; --surface: #242019; --raised: #2b261f; --border: #3a322a; --border-strong: #4b4136;
-      --text: #efe7dd; --muted: #a8998a; --accent: #e08a64; --accent-strong: #eb9d7a; --accent-soft: #3b281e; --on-accent: #1c1814;
-      --error: #f0a093; --error-soft: #3d2420; --warn: #e2c27c; --warn-soft: #352a17; --ok: #a9c48f; --ok-soft: #26301d;
+      --bg: #171a16; --surface: #1f231e; --raised: #262b25; --border: #343a32; --border-strong: #454d42;
+      --text: #eceee7; --muted: #a2aa9c; --accent: #c7d3c0; --accent-strong: #dce5d6; --accent-soft: #2e3829; --accent-tint: #262f23; --accent-ink: #c7d3c0; --on-accent: #171a16;
+      --error: #f0a093; --error-soft: #3d2420; --warn: #e2c27c; --warn-soft: #352a17; --ok: #7fcba9; --ok-soft: #1c3229;
       --rec: #f07a66; --shadow: none; --menu-shadow: 0 10px 32px rgba(0, 0, 0, .5); color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #1c1814; --surface: #242019; --raised: #2b261f; --border: #3a322a; --border-strong: #4b4136;
-    --text: #efe7dd; --muted: #a8998a; --accent: #e08a64; --accent-strong: #eb9d7a; --accent-soft: #3b281e; --on-accent: #1c1814;
-    --error: #f0a093; --error-soft: #3d2420; --warn: #e2c27c; --warn-soft: #352a17; --ok: #a9c48f; --ok-soft: #26301d;
+    --bg: #171a16; --surface: #1f231e; --raised: #262b25; --border: #343a32; --border-strong: #454d42;
+    --text: #eceee7; --muted: #a2aa9c; --accent: #c7d3c0; --accent-strong: #dce5d6; --accent-soft: #2e3829; --accent-tint: #262f23; --accent-ink: #c7d3c0; --on-accent: #171a16;
+    --error: #f0a093; --error-soft: #3d2420; --warn: #e2c27c; --warn-soft: #352a17; --ok: #7fcba9; --ok-soft: #1c3229;
     --rec: #f07a66; --shadow: none; --menu-shadow: 0 10px 32px rgba(0, 0, 0, .5); color-scheme: dark;
   }
   * { box-sizing: border-box; }
@@ -52,7 +53,7 @@
   #theme-toggle { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border-radius: 10px; }
   #theme-toggle svg { width: 18px; height: 18px; }
   #subtitle { margin: 10px 0 0; color: var(--muted); font-size: 15px; }
-  @media (max-width: 640px) { .bar .tabs { order: 3; width: 100%; } .bar .tabs .tab { flex: 1; } }
+  @media (max-width: 640px) { .bar .tabs { order: 3; width: 100%; } .bar .tabs .tab { flex: 1 1 auto; padding: 6px 8px; } }
 
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
   h2 { margin: 0 0 12px; font-size: 16px; }
@@ -102,7 +103,7 @@
     display: block; border: 2px dashed var(--border-strong); border-radius: 12px; padding: 32px 16px; text-align: center;
     cursor: pointer; transition: border-color .15s, background .15s; background: var(--raised);
   }
-  #drop.over, #drop:hover, #m-drop.over, #m-drop:hover { border-color: var(--accent); background: var(--accent-soft); }
+  #drop.over, #drop:hover, #m-drop.over, #m-drop:hover { border-color: var(--accent); background: var(--accent-tint); }
   #drop strong, #m-drop strong { display: block; }
   .drop-icon { width: 34px; height: 34px; color: var(--accent); margin-bottom: 6px; }
   #m-drop { padding: 22px 16px; }
@@ -124,7 +125,7 @@
   .cloud { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
   .cloud svg { width: 15px; height: 15px; flex: none; }
   .cloud.uploaded { background: var(--ok-soft); color: var(--ok); }
-  .cloud.pending { background: var(--accent-soft); color: var(--accent); }
+  .cloud.pending { background: var(--accent-soft); color: var(--accent-ink); }
   .cloud.retrying { background: var(--warn-soft); color: var(--warn); }
   details { margin-top: 10px; }
   summary { cursor: pointer; color: var(--muted); font-size: 14px; }
@@ -178,9 +179,9 @@
 
   /* modes */
   .tabs { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
-  .tab { background: transparent; color: var(--muted); font-weight: 500; padding: 6px 14px; font-size: 14px; }
+  .tab { background: transparent; color: var(--muted); font-weight: 500; padding: 6px 14px; font-size: 14px; white-space: nowrap; }
   .tab:not(.active):not(:disabled):hover { color: var(--text); background: var(--raised); }
-  .tab.active, .tab.active:not(:disabled):hover { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .tab.active, .tab.active:not(:disabled):hover { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
   select { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); max-width: 260px; }
   .stage.live { margin-top: 14px; }
   .stage.live video { transform: scaleX(-1); }
@@ -226,7 +227,7 @@
   .entry:hover { border-color: var(--border); }
   .entry.failed { box-shadow: inset 3px 0 0 var(--error); }
   .entry.recording { box-shadow: inset 3px 0 0 var(--rec); }
-  .entry.current, .entry.current:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .entry.current, .entry.current:hover { border-color: var(--accent); background: var(--accent-tint); }
   .entry.clickable { cursor: pointer; }
   .m-head { display: flex; justify-content: space-between; align-items: center; gap: 4px 12px; }
   .m-head .title { font-weight: 600; font-size: 16px; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; word-break: break-word; }
@@ -272,7 +273,7 @@
   .notes.transcript p { margin: 6px 0; }
 
   /* badges */
-  .badge { font-size: 12px; font-weight: 600; padding: 1px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+  .badge { font-size: 12px; font-weight: 600; padding: 1px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent-ink); white-space: nowrap; }
   .badge.completed, .badge.ready { background: var(--ok-soft); color: var(--ok); }
   .badge.failed { background: var(--error-soft); color: var(--error); }
   .badge.recording { background: var(--rec); color: #fff; }
@@ -316,7 +317,7 @@
   <header>
     <div class="bar">
       <div class="brand">
-        <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" fill="#b65a37"/><path d="M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="32" r="6" fill="#fff"/></svg>
+        <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="16" style="fill: var(--accent)"/><path d="M14 25V14h11M39 14h11v11M50 39v11H39M25 50H14V39" fill="none" style="stroke: var(--on-accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="32" r="6" style="fill: var(--on-accent)"/></svg>
         <h1>Hindsight</h1>
       </div>
       <nav class="tabs">
@@ -599,6 +600,18 @@
   });
   system.addEventListener('change', show);
   show();
+})();
+</script>
+
+<script>
+// Colour of an object class: the same label gets the same colour in the file and live modes
+window.colorFor = (() => {
+  const COLORS = ['#f0716c', '#4fb3e8', '#5cc98a', '#f2c14e', '#c47ee8', '#f2914a', '#45cbbd', '#9d8cf0', '#c4d04a', '#f08cb3'];
+  return label => {
+    let h = 0;
+    for (const ch of label) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return COLORS[h % COLORS.length];
+  };
 })();
 </script>
 
@@ -1048,13 +1061,6 @@ window.actionMenu = (() => {
   // Boxes over the video
   // Positions between two analysed frames are interpolated while the video plays.
   const overlay = $('overlay'), ctx = overlay.getContext('2d');
-  const COLORS = ['#f0716c', '#4fb3e8', '#5cc98a', '#f2c14e', '#c47ee8', '#f2914a', '#45cbbd', '#9d8cf0', '#c4d04a', '#f08cb3'];
-
-  function colorFor(label) {
-    let h = 0;
-    for (const ch of label) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-    return COLORS[h % COLORS.length];
-  }
 
   function positionAt(track, t, step) {
     if (!track || !track.length) return null;
@@ -1339,8 +1345,6 @@ window.actionMenu = (() => {
 // Live camera
 (() => {
   const $ = id => document.getElementById(id);
-  const COLORS = ['#f0716c', '#4fb3e8', '#5cc98a', '#f2c14e', '#c47ee8', '#f2914a', '#45cbbd', '#9d8cf0', '#c4d04a', '#f08cb3'];
-  const colorFor = label => { let h = 0; for (const ch of label) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const MAX_SIDE = 960;   // frames sent to the server are downscaled to this
 
