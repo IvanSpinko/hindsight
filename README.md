@@ -86,13 +86,13 @@ You need JDK 21, Maven, Python, the NVIDIA CUDA 12 runtime and cuDNN 9.
 
 ```bash
 pip install ultralytics
-python export_yoloworld.py
+python packaging/export_yoloworld.py
 powershell -ExecutionPolicy Bypass -File packaging\get-models.ps1
 mvn package
 java -jar target/visiontrack-object-detection-aws-1.0-SNAPSHOT.jar
 ```
 
-1. `export_yoloworld.py` downloads the object detection model and saves it in `models/`. The list of objects
+1. `packaging/export_yoloworld.py` downloads the object detection model and saves it in `models/`. The list of objects
    it looks for is in `models/classes.txt` and can be edited.
 2. `get-models.ps1` downloads the speech and notes models (about 13 GB). Video analysis works without them.
 3. Open http://localhost:8080.

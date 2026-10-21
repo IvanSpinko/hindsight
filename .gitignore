@@ -1,50 +1,27 @@
+# Build output
 target/
-!.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
-.kotlin
-
-### IntelliJ IDEA ###
-.idea/
-*.iws
-*.iml
-*.ipr
-
-### Eclipse ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
-.vscode/
-
-### Mac OS ###
-.DS_Store
-### VisionTrack ###
-data/
-hs_err_pid*.log
 dist/
+hs_err_pid*.log
 
-# Large binaries: exported models (~500 MB) and training weights stay local
+# IDE and OS files
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# App data written at runtime (uploads, analyses, exports)
+data/
+
+# Models and tools stay local: exported ONNX models, export weights and the Python environment,
+# and the speech and notes programs and models fetched by packaging/get-models.ps1
 models/*.onnx
+models/whisper/
+models/llm/
+models/parakeet-tdt-0.6b-v3/
+tools/
 weights/
 *.pt
 .venv-model/
-.idea/workspace.xml
 
 # Secrets and per-user settings never go into git
 settings.json
@@ -52,7 +29,7 @@ settings.json
 *.env
 *.key
 
-# Lambda tests and Terraform state/variables (secrets, account data)
+# Lambda tests and Terraform state and variables (secrets, account data)
 infra/lambda/.venv/
 __pycache__/
 .pytest_cache/
@@ -64,11 +41,5 @@ infra/terraform.tfvars
 infra/build/
 infra/tfplan*
 
-# Speech recognition and the notes model (whisper.cpp, Parakeet, llama.cpp binaries and models, fetched by packaging/get-models.ps1)
-tools/
-models/whisper/
-models/llm/
-models/parakeet-tdt-0.6b-v3/
-
-### Local working notes (not published) ###
+# Local working notes (not published)
 docs/internal/
