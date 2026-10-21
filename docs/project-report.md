@@ -129,7 +129,7 @@ GET /api/analyses/{id}/video  the annotated video (MP4)
 
 ### 5.2 Detection
 - Model: **YOLO-World X**, exported to ONNX at 960×960 with a fixed vocabulary of **99 classes**
-  (`models/classes.txt`: person, bicycle, car, ...). Export script: `export_yoloworld.py` (Ultralytics,
+  (`models/classes.txt`: person, bicycle, car, ...). Export script: `packaging/export_yoloworld.py` (Ultralytics,
   `set_classes`, `imgsz=960`, static shape).
 - `ImagePreprocessor`: letterbox (keep aspect ratio, pad), RGB → CHW float tensor.
 - `OnnxYoloDetector`: ONNX Runtime GPU 1.22 with the **CUDA execution provider only**; graph optimisation level ALL.
@@ -405,10 +405,9 @@ src/main/java/org/example/visiontrack/   application code (packages in section 4
 src/main/resources/                      application.yml, application-desktop.yml, static/index.html, tray icon
 src/test/java/                           136 tests (plus 32 pytest tests in infra/lambda/tests)
 native/audio-loopback/                   system sound helper source (C#)
-packaging/                               build-desktop.ps1, get-models.ps1, build-loopback.ps1, README.txt (for users), icon
+packaging/                               build-desktop.ps1, get-models.ps1, build-loopback.ps1, export_yoloworld.py (model export), README.txt (for users), icon
 docs/                                    API, cloud pipeline, spec and this report
 infra/                                   Terraform and the Lambda (Python) of the cloud pipeline
-export_yoloworld.py                      model export (Python, Ultralytics)
 models/classes.txt                       the 99 detection classes
 ```
 Ignored by git: `models/*.onnx`, `models/whisper`, `models/llm`, `models/parakeet-tdt-0.6b-v3`, `tools/`, `weights/`, `data/`, `dist/`,

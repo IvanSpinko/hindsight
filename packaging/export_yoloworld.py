@@ -2,6 +2,9 @@ from ultralytics import YOLOWorld
 from pathlib import Path
 import shutil
 
+# Writes into models/ of the project, wherever the script is started from
+MODELS = Path(__file__).resolve().parent.parent / "models"
+
 # Objects the model detects: any words in plain English
 classes = [
     # People & Vehicles
@@ -38,10 +41,10 @@ model.set_classes(classes)
 print("Exporting to ONNX 960x960...")
 exported_path = model.export(format="onnx", imgsz=960, dynamic=False, simplify=False)
 
-dest_model = Path("models/yoloworldx-960.onnx")
+dest_model = MODELS / "yoloworldx-960.onnx"
 shutil.copy2(exported_path, dest_model)
 
-dest_classes = Path("models/classes.txt")
+dest_classes = MODELS / "classes.txt"
 with open(dest_classes, "w", encoding="utf-8") as f:
     for c in classes:
         f.write(c + "\n")
